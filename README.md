@@ -11,10 +11,11 @@
 
 
 ```bash
-"ffmpeg.exe" -i %1 -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | "neroAacEnc.exe" -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"
-VideoSlim 首先使用了 ffmpeg 软件，将 %1 所指代的音频文件（格式未知）转换为 PCM 格式的 WAV 音频，并且将音频流通过管道（pipe）传送给 neroAacEnc 软件，使用 LC（Low Complexity）模式进行编码，码率为 128kbps，并将输出保存在当前目录下的名为 old_atemp.mp4 的 MP4 文件中。
+"ffmpeg" -i %1 -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | "neroAacEnc.exe" -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"
+VideoSlim 首先使用了 ffmpeg 软件，将 %1 所指代的音频文件（格式未知）转换为 PCM 格式的 WAV 音频，并且将音频流通过管道（pipe）传送给 neroAacEnc 软件，
+使用 LC（Low Complexity）模式进行编码，码率为 128kbps，并将输出保存在当前目录下的名为 old_atemp.mp4 的 MP4 文件中。
 
-"x264_32-8bit.exe" --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4" %1
+"x264_32-8bit" --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4" %1
 这个命令使用了 x264 软件，将 %1 所指代的视频文件（格式未知）编码为 H.264 格式的视频，并且将输出保存在当前目录下的名为 old_vtemp.mp4 的 MP4 文件中。具体的编码参数如下：
 
 --crf 23.5：设置压缩质量，数值越小，质量越好，取值范围为 0~51。
@@ -31,8 +32,9 @@ VideoSlim 首先使用了 ffmpeg 软件，将 %1 所指代的音频文件（格�
 --aq-mode 2：开启自适应量化器模式，使用 AQ（Adaptive Quantization）算法
 --aq-strength 0.8：设置 AQ 算法的强度为 0.8。
 
-"mp4box.exe" -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new %2
-这个命令使用了 MP4Box 软件，将第一步和第二步生成的两个 MP4 文件合并成一个 MP4 文件，并且将输出保存为 %2 所指代的文件名。其中，old_vtemp.mp4 是视频文件，old_atemp.mp4 是音频文件，两者都被添加到了输出文件中，每个媒体流都被赋予了唯一的 trackID 和名称。
+"mp4box" -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new %2
+这个命令使用了 MP4Box 软件，将第一步和第二步生成的两个 MP4 文件合并成一个 MP4 文件，并且将输出保存为 %2 所指代的文件名。
+其中，old_vtemp.mp4 是视频文件，old_atemp.mp4 是音频文件，两者都被添加到了输出文件中，每个媒体流都被赋予了唯一的 trackID 和名称。
 ```
 
 
