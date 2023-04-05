@@ -4,12 +4,12 @@
 <p align="center">Lossless video compression tool</p>
 <p align="center">一款无损的视频压缩工具</p>
 
-<center>
-  <img src="./img/interface.jpg" width="500px" >
-</center>
+<p align="center">
+  <img src="./img/interface.jpg" width="500" style="display: block; margin: auto;" />
+</p>
 
 <center>
-  <img src="./img/readme.jpg" width="800px" >
+  <img src="./img/readme.jpg" width="800px" style="display: block; margin: auto;" >
 </center>
 
 
@@ -37,9 +37,6 @@ VideoSlim 首先使用了 ffmpeg 软件，将 %1 所指代的音频文件（格�
 --aq-mode 2：开启自适应量化器模式，使用 AQ（Adaptive Quantization）算法
 --aq-strength 0.8：设置 AQ 算法的强度为 0.8。
 
-"mp4box" -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new %2
-这个命令使用了 MP4Box 软件，将第一步和第二步生成的两个 MP4 文件合并成一个 MP4 文件，并且将输出保存为 %2 所指代的文件名。
-其中，old_vtemp.mp4 是视频文件，old_atemp.mp4 是音频文件，两者都被添加到了输出文件中，每个媒体流都被赋予了唯一的 trackID 和名称。
 ```
 
 
