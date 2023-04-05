@@ -4,9 +4,12 @@
 <p align="center">Lossless video compression tool</p>
 <p align="center">一款无损的视频压缩工具</p>
 
+<center>
+  <img src="./img/interface.jpg" width="500px" >
+</center>
 
 <center>
-  <img src="./img/readme.jpg" width="500px" >
+  <img src="./img/readme.jpg" width="800px" >
 </center>
 
 
