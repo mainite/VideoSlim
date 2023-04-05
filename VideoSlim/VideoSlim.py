@@ -1,12 +1,12 @@
+# Copyright (c) <2023> <hotMonk> <inite.cn>
+# >
 from tkinter import *
 import os
+import time
 import windnd
 import subprocess
 from tkinter import filedialog
 
-# 创建 STARTUPINFO 对象
-startupinfo = subprocess.STARTUPINFO()
-startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
 class DragDropApp(Tk):
     def __init__(self):
@@ -59,11 +59,11 @@ class DragDropApp(Tk):
         self.text_box.insert(END, files+"\n")
 
 
-    def MakeBatCmd(self,filename):
+    def GetSaveOutFileName(self,filename):
         file_name, file_ext = os.path.splitext(filename)
-        new_file_name = file_name + "_x264.mp4"
-        batCmd = "compress.bat " + filename + " " + new_file_name
-        return new_file_name
+        save_out_name = file_name + "_x264.mp4"
+        batCmd = "compress.bat " + filename + " " + save_out_name
+        return save_out_name
 
 
     def DoCompress(self):
@@ -71,11 +71,20 @@ class DragDropApp(Tk):
 
         if text_content != "":
             lines = text_content.splitlines()
-            for lin in lines:
-                new_file_name = self.MakeBatCmd(lin)
-                args = ["Hello","World"]
-                subprocess.call(['compress.bat', lin, new_file_name], startupinfo=startupinfo)
-                print("has finished executing.")
+            for file_name in lines:
+                if file_name != "":
+                    save_out_name = self.GetSaveOutFileName(file_name)
+                    command1 = r'.\tools\ffmpeg.exe -i "{}" -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | .\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"'.format(file_name)
+                    command2 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'.format(file_name)
+                    command3 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'.format(save_out_name)
+                    command4 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'.format(save_out_name)
+                    command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
+                    os.system(command1)
+                    os.system(command2)
+                    os.system(command3)
+                    os.system(command4)
+                    os.system(command5)
+            print("has finished ！！！")
 
         else:
             print("No video file")
