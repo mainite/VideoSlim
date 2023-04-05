@@ -1,5 +1,5 @@
 # Copyright (c) <2023> <hotMonk> <inite.cn>
-# >
+
 from tkinter import *
 import os
 import webbrowser
@@ -17,8 +17,8 @@ class DragDropApp(Tk):
         size = '%dx%d+%d+%d' % (527, 351, (screenwidth - 527) / 2, (screenheight - 351) / 2)
         self.geometry(size)
 
-        # self.iconbitmap(设置软件图标，ICO图标完整路径)
-        # self.bind('1',给窗口绑定事件函数)
+        # self.iconbitmap(SetICO，ICO_Path)
+        # self.bind('1',BindEvent)
 
         # Create a label widget with a hyperlink
         hyperlink_label = Label(self, text="github", fg="#cdcdcd", cursor="hand2")
@@ -32,8 +32,7 @@ class DragDropApp(Tk):
         Label1 = Label(self, textvariable=Label1_title, anchor=W)
         Label1.place(x=26, y=8, width=160, height=24)
 
-        self.text_var = StringVar()
-        self.text_var.set("将视频拖拽到此窗口")
+
         self.text_box = Text(self, width=100, height=20)
         self.text_box.place(x=24, y=40, width=480, height=232)
 
@@ -88,7 +87,7 @@ class DragDropApp(Tk):
                     os.system(command3)
                     os.system(command4)
                     os.system(command5)
-            print("has finished ！！！")
+            print("Has Finished ！！！")
         else:
             print("No video file")
 
