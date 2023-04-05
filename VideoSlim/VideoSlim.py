@@ -2,6 +2,7 @@
 # >
 from tkinter import *
 import os
+import webbrowser
 import windnd
 
 class DragDropApp(Tk):
@@ -18,6 +19,13 @@ class DragDropApp(Tk):
 
         # self.iconbitmap(设置软件图标，ICO图标完整路径)
         # self.bind('1',给窗口绑定事件函数)
+
+        # Create a label widget with a hyperlink
+        hyperlink_label = Label(self, text="github", fg="#cdcdcd", cursor="hand2")
+        hyperlink_label.pack(side=TOP, anchor=NE, padx=25, pady=8)
+        hyperlink_label.bind("<Button-1>", lambda event: webbrowser.open_new_tab("https://github.com/mainite/VideoSlim"))
+
+
 
         Label1_title = StringVar()
         Label1_title.set('将视频拖拽到此窗口:')
@@ -81,8 +89,6 @@ class DragDropApp(Tk):
                     os.system(command4)
                     os.system(command5)
             print("has finished ！！！")
-            print("压缩完成，更多软件请访问https://inite.cn")
-
         else:
             print("No video file")
 
