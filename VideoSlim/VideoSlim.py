@@ -1,5 +1,5 @@
 # Copyright (c) <2023> <hotMonk> <inite.cn>
-# >
+
 from tkinter import *
 import os
 import webbrowser
