@@ -2,11 +2,7 @@
 # >
 from tkinter import *
 import os
-import time
 import windnd
-import subprocess
-from tkinter import filedialog
-
 
 class DragDropApp(Tk):
     def __init__(self):
@@ -85,6 +81,7 @@ class DragDropApp(Tk):
                     os.system(command4)
                     os.system(command5)
             print("has finished ！！！")
+            print("压缩完成，更多软件请访问https://inite.cn")
 
         else:
             print("No video file")
