@@ -9,8 +9,6 @@ class DragDropApp(Tk):
     def __init__(self):
         super().__init__()
         self.title("VideoSlim 视频压缩")
-
-
         self.resizable(width=False, height=False)
         screenwidth = self.winfo_screenwidth()
         screenheight = self.winfo_screenheight()
@@ -43,12 +41,15 @@ class DragDropApp(Tk):
         button2.place(x=168, y=291, width=88, height=40)
         # 按钮2.bind('1',给按钮绑定事件函数)
 
+
         button1_title = StringVar()
         button1_title.set('压缩')
         button1 = Button(self, textvariable=button1_title ,command=self.DoCompress)  # ,command=按钮点击触发的函数
         button1.place(x=280, y=291, width=88, height=40)
 
-
+        self.delete_source_var = BooleanVar()
+        delete_source_check = Checkbutton(self, text="完成后删除旧文件", variable=self.delete_source_var, onvalue=True, offvalue=False)
+        delete_source_check.place(x=20, y=295)
 
         windnd.hook_dropfiles(self, func=self.drop_file)
 
@@ -72,6 +73,9 @@ class DragDropApp(Tk):
     def DoCompress(self):
         text_content = self.text_box.get("1.0",END)
 
+
+
+
         if text_content != "":
             lines = text_content.splitlines()
             for file_name in lines:
@@ -80,11 +84,19 @@ class DragDropApp(Tk):
                     command1 = r'.\tools\ffmpeg.exe -i "{}" -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | .\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"'.format(file_name)
                     command2 = r'.\tools\x264_64-10bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'.format(file_name)
                     command3 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'.format(save_out_name)
-                    command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
+                    command4 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
+
+                    command5 = r'del "{}"'.format(file_name)
+
                     os.system(command1)
                     os.system(command2)
                     os.system(command3)
-                    os.system(command5)
+                    os.system(command4)
+
+                    if self.delete_source_var.get():
+                        os.system(command5)
+
+
             print("Has Finished ！！！")
         else:
             print("No video file")
