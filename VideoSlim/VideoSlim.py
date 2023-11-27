@@ -82,7 +82,7 @@ class DragDropApp(Tk):
                 if file_name != "":
                     save_out_name = self.GetSaveOutFileName(file_name)
                     command1 = r'.\tools\ffmpeg.exe -i "{}" -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | .\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"'.format(file_name)
-                    command2 = r'.\tools\x264_64-10bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'.format(file_name)
+                    command2 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'.format(file_name)
                     command3 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'.format(save_out_name)
                     command4 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
 
