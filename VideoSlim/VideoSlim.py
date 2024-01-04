@@ -8,8 +8,9 @@ import windnd
 class DragDropApp():
     def __init__(self, root):
         self.root = root
-        self.root.title("VideoSlim 视频压缩")
+        self.root.title("VideoSlim 视频压缩 v1.4")
         self.root.resizable(width=False, height=False)
+        self.root.iconbitmap(os.path.join(os.getcwd(), "./tools/icon.ico"))
         screenwidth = self.root.winfo_screenwidth()
         screenheight = self.root.winfo_screenheight()
         size = '%dx%d+%d+%d' % (527, 351, (screenwidth - 527) / 2, (screenheight - 351) / 2)
