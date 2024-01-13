@@ -1,7 +1,8 @@
 # Copyright (c) <2023> <hotMonk> <inite.cn>
-
+import time
 from tkinter import *
 import webbrowser
+import psutil
 import windnd
 from tkinter import messagebox
 from moviepy.editor import *
@@ -9,13 +10,12 @@ import requests
 import os
 import threading
 
+
 class DragDropApp():
     def __init__(self, root):
 
         #定义当前版本号
         self.Version_number = 'v1.4'
-
-
 
         self.root = root
         self.root.title("VideoSlim 视频压缩  "+self.Version_number)
@@ -76,7 +76,6 @@ class DragDropApp():
     def GetSaveOutFileName(self, filename):
         file_name, file_ext = os.path.splitext(filename)
         save_out_name = file_name + "_x264.mp4"
-        batCmd = "compress.bat " + filename + " " + save_out_name
         return save_out_name
 
     def DoCompress(self):
@@ -94,11 +93,23 @@ class DragDropApp():
                     video = VideoFileClip(file_name)
                     if video.audio is None or self.delete_audio_var.get():
                         print("视频没有音频轨道")
-                        command1 = r'.\tools\x264_64-8bit.exe --crf 23.5 --preset 8 -I 900 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
-                        os.system(command1.format(save_out_name, file_name))
 
+                        command1 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
+                        os.system(command1.format(save_out_name,file_name))
+
+
+                        # 莫名其妙的占用进程，导致文件无法删除
+                        current_pid = os.getpid()
+                        for proc in psutil.process_iter():
+                            if proc.ppid() == current_pid:
+                                if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
+                                    proc.kill()
+                                    break
+
+                        time.sleep(1)
                         if self.delete_source_var.get():
-                            os.system(command5.format(file_name))
+                            os.remove(file_name)
+
 
                     else:
                         print("视频有音频轨道")
@@ -113,8 +124,18 @@ class DragDropApp():
                         os.system(command3.format(save_out_name))
                         os.system(command4)
 
+                        # 莫名其妙的占用进程，导致文件无法删除
+                        current_pid = os.getpid()
+                        for proc in psutil.process_iter():
+                            if proc.ppid() == current_pid:
+                                if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
+                                    proc.kill()
+                                    break
+
+                        time.sleep(1)
                         if self.delete_source_var.get():
-                            os.system(command5.format(file_name))
+                            os.remove(file_name)
+
             # 弹出信息框
             messagebox.showinfo("提示", "转换完成")
 
@@ -127,7 +148,6 @@ class DragDropApp():
 
             if latest_release != self.Version_number:
                 messagebox.showinfo("更新提示", "有新版本可用，请前往官网更新")
-
 
 
 if __name__ == '__main__':
