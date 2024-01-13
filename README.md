@@ -14,7 +14,6 @@
 
 
 ```bash
-感谢小丸工具箱提供参数
 
 "ffmpeg" -i %1 -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | "neroAacEnc.exe" -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"
 VideoSlim 首先使用了 ffmpeg 软件，将 %1 所指代的音频文件（格式未知）转换为 PCM 格式的 WAV 音频，并且将音频流通过管道（pipe）传送给 neroAacEnc 软件，
