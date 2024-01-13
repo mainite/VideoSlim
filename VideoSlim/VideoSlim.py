@@ -6,6 +6,8 @@ import windnd
 from tkinter import messagebox
 from moviepy.editor import *
 import requests
+import os
+import threading
 
 class DragDropApp():
     def __init__(self, root):
@@ -92,7 +94,7 @@ class DragDropApp():
                     video = VideoFileClip(file_name)
                     if video.audio is None or self.delete_audio_var.get():
                         print("视频没有音频轨道")
-                        command1 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 900 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
+                        command1 = r'.\tools\x264_64-8bit.exe --crf 23.5 --preset 8 -I 900 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
                         os.system(command1.format(save_out_name, file_name))
 
                         if self.delete_source_var.get():
@@ -101,7 +103,7 @@ class DragDropApp():
                     else:
                         print("视频有音频轨道")
                         command1 = r'.\tools\ffmpeg.exe -i "{}" -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | .\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"'
-                        command2 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'
+                        command2 = r'.\tools\x264_64-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'
                         command3 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'
                         command4 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
                         command5 = r'del "{}"'
@@ -131,5 +133,6 @@ class DragDropApp():
 if __name__ == '__main__':
     root = Tk()
     app = DragDropApp(root)
-    app.version_number_detection()
+    t1 = threading.Thread(target=app.version_number_detection)
+    t1.start()
     root.mainloop()
