@@ -146,7 +146,7 @@ class DragDropApp():
         if data and len(data):
             latest_release = data[0]  # 第一个元素就是最新的Release
 
-            if latest_release != self.Version_number:
+            if latest_release['tag_name'] != self.Version_number:
                 messagebox.showinfo("更新提示", "有新版本可用，请前往官网更新")
 
 
