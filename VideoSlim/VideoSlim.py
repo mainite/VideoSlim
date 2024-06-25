@@ -86,6 +86,7 @@ class DragDropApp():
             if len(lines) <= 1:
                 messagebox.showwarning("提示", "请先拖拽文件到此处")
                 return False
+            lines.remove("")
             index = 0
             for file_name in lines:
                 index += 1
