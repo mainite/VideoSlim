@@ -35,8 +35,8 @@ class DragDropApp():
         # 提示文本
         Label1_title = StringVar()
         Label1_title.set('将视频拖拽到此窗口:')
-        Label1 = Label(self.root, textvariable=Label1_title, anchor=W)
-        Label1.place(x=26, y=8, width=160, height=24)
+        self.label1 = Label(self.root, textvariable=Label1_title, anchor=W)
+        self.label1.place(x=26, y=8, width=160, height=24)
 
         # 文件框
         self.text_box = Text(self.root, width=100, height=20)
@@ -119,22 +119,29 @@ class DragDropApp():
                         command4 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
                         command5 = r'del "{}"'
 
-                        subprocess.check_call(command1.format(file_name),creationflags=CREATE_NO_WINDOW)
-                        subprocess.check_call(command2.format(file_name),creationflags=CREATE_NO_WINDOW)
-                        subprocess.check_call(command3.format(save_out_name),creationflags=CREATE_NO_WINDOW)
-                        subprocess.check_call(command4,creationflags=CREATE_NO_WINDOW)
+                        try:
+                            subprocess.check_call(command1.format(file_name),shell=True,creationflags=CREATE_NO_WINDOW)
+                            subprocess.check_call(command2.format(file_name),creationflags=CREATE_NO_WINDOW)
+                            subprocess.check_call(command3.format(save_out_name),creationflags=CREATE_NO_WINDOW)
+                            os.remove("./old_atemp.mp4")
+                            os.remove("./old_vtemp.mp4")
+                            # subprocess.check_call(command4,cwd=os.getcwd())
+                            # 莫名其妙的占用进程，导致文件无法删除
+                            current_pid = os.getpid()
+                            for proc in psutil.process_iter():
+                                if proc.ppid() == current_pid:
+                                    if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
+                                        proc.kill()
+                                        break
 
-                        # 莫名其妙的占用进程，导致文件无法删除
-                        current_pid = os.getpid()
-                        for proc in psutil.process_iter():
-                            if proc.ppid() == current_pid:
-                                if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
-                                    proc.kill()
-                                    break
+                            time.sleep(1)
+                            if self.delete_source_var.get():
+                                os.remove(file_name)
+                                
+                        except Exception as err:
+                            messagebox.showerror("错误","发生错误!\n"+err.__str__())
+                            
 
-                        time.sleep(1)
-                        if self.delete_source_var.get():
-                            os.remove(file_name)
 
             # 弹出信息框
             messagebox.showinfo("提示", "转换完成")
