@@ -33,10 +33,10 @@ class DragDropApp():
         hyperlink_label.bind("<Button-1>", lambda event: webbrowser.open_new_tab("https://github.com/mainite/VideoSlim"))
 
         # 提示文本
-        Label1_title = StringVar()
-        Label1_title.set('将视频拖拽到此窗口:')
-        self.label1 = Label(self.root, textvariable=Label1_title, anchor=W)
-        self.label1.place(x=26, y=8, width=160, height=24)
+        self.Label1_title = StringVar()
+        self.Label1_title.set('将视频拖拽到此窗口:')
+        self.label1 = Label(self.root, textvariable=self.Label1_title, anchor=W)
+        self.label1.place(x=26, y=8, width=500, height=24)
 
         # 文件框
         self.text_box = Text(self.root, width=100, height=20)
@@ -86,9 +86,11 @@ class DragDropApp():
             if len(lines) <= 1:
                 messagebox.showwarning("提示", "请先拖拽文件到此处")
                 return False
-
+            index = 0
             for file_name in lines:
+                index += 1
                 if file_name != "":
+                    self.Label1_title.set(f"[{index}/{len(lines)}]当前处理文件：{os.path.basename(file_name)}")
                     save_out_name = self.GetSaveOutFileName(file_name)
                     # 判断视频是否拥有音频轨道
                     video = VideoFileClip(file_name)
