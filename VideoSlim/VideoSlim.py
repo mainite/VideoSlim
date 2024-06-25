@@ -12,6 +12,26 @@ import threading
 import subprocess
 from subprocess import CREATE_NO_WINDOW
 
+extention_lists = [".mp4",".mkv",".mov",".avi"]
+
+def fast_scandir(dir, ext):    # dir: str, ext: list
+    # Thanks to @not2qbit in https://stackoverflow.com/questions/18394147/how-to-do-a-recursive-sub-folder-search-and-return-files-in-a-list?answertab=modifieddesc#tab-top 
+    subfolders, files = [], []
+
+    for f in os.scandir(dir):
+        if f.is_dir():
+            subfolders.append(f.path)
+        if f.is_file():
+            if os.path.splitext(f.name)[1].lower() in ext:
+                files.append(f.path)
+
+
+    for dir in list(subfolders):
+        sf, f = fast_scandir(dir, ext)
+        subfolders.extend(sf)
+        files.extend(f)
+    return subfolders, files
+
 class DragDropApp():
     def __init__(self, root):
 
@@ -55,6 +75,11 @@ class DragDropApp():
         button1.place(x=280, y=291, width=88, height=40)
 
         # 选择框
+        self.recurse_var = BooleanVar()
+        recurse_check = Checkbutton(self.root, text="递归(至最深深度)子文件夹里面的视频", variable=self.recurse_var,
+                                          onvalue=True, offvalue=False)
+        recurse_check.place(x=20,y=258)
+        
         self.delete_source_var = BooleanVar()
         delete_source_check = Checkbutton(self.root, text="完成后删除旧文件", variable=self.delete_source_var,
                                           onvalue=True, offvalue=False)
@@ -90,6 +115,13 @@ class DragDropApp():
             index = 0
             for file_name in lines:
                 index += 1
+                if os.path.isdir(file_name):
+                    _,files = fast_scandir(file_name,extention_lists)
+                    lines.extend(files)
+                    self.Label1_title.set(f"[{index}/{len(lines)}]从该文件夹递归添加文件：{os.path.basename(file_name)}")
+                    self.label1.update()
+                    time.sleep(3)
+                    continue
                 if file_name != "":
                     self.Label1_title.set(f"[{index}/{len(lines)}]当前处理文件：{os.path.basename(file_name)}")
                     self.label1.update()
