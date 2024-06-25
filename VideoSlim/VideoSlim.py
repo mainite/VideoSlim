@@ -36,7 +36,7 @@ class DragDropApp():
         self.Label1_title = StringVar()
         self.Label1_title.set('将视频拖拽到此窗口:')
         self.label1 = Label(self.root, textvariable=self.Label1_title, anchor=W)
-        self.label1.place(x=26, y=8, width=500, height=24)
+        self.label1.place(x=26, y=8, width=300, height=24)
 
         # 文件框
         self.text_box = Text(self.root, width=100, height=20)
@@ -91,6 +91,7 @@ class DragDropApp():
                 index += 1
                 if file_name != "":
                     self.Label1_title.set(f"[{index}/{len(lines)}]当前处理文件：{os.path.basename(file_name)}")
+                    self.label1.update()
                     save_out_name = self.GetSaveOutFileName(file_name)
                     # 判断视频是否拥有音频轨道
                     video = VideoFileClip(file_name)
@@ -100,13 +101,13 @@ class DragDropApp():
                         command1 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
                         subprocess.check_call(command1.format(save_out_name,file_name),creationflags=CREATE_NO_WINDOW)
 
-                        # 莫名其妙的占用进程，导致文件无法删除
-                        current_pid = os.getpid()
-                        for proc in psutil.process_iter():
-                            if proc.ppid() == current_pid:
-                                if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
-                                    proc.kill()
-                                    break
+                        # # 莫名其妙的占用进程，导致文件无法删除
+                        # current_pid = os.getpid()
+                        # for proc in psutil.process_iter():
+                        #     if proc.ppid() == current_pid:
+                        #         if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
+                        #             proc.kill()
+                        #             break
 
                         time.sleep(1)
                         if self.delete_source_var.get():
@@ -134,12 +135,12 @@ class DragDropApp():
                             subprocess.check_call(command4.format(save_out_name),creationflags=CREATE_NO_WINDOW)
                             # subprocess.check_call(command4,cwd=os.getcwd())
                             # 莫名其妙的占用进程，导致文件无法删除
-                            current_pid = os.getpid()
-                            for proc in psutil.process_iter():
-                                if proc.ppid() == current_pid:
-                                    if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
-                                        proc.kill()
-                                        break
+                            # current_pid = os.getpid()
+                            # for proc in psutil.process_iter():
+                            #     if proc.ppid() == current_pid:
+                            #         if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
+                            #             proc.kill()
+                            #             break
 
                             time.sleep(1)
                             video.close()
