@@ -113,18 +113,23 @@ class DragDropApp():
 
                     else:
                         print("视频有音频轨道")
-                        command1 = r'.\tools\ffmpeg.exe -i "{}" -vn -sn -v 0 -c:a pcm_s16le -f wav pipe: | .\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if - -of ".\old_atemp.mp4"'
-                        command2 = r'.\tools\x264_64-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'
-                        command3 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'
-                        command4 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
-                        command5 = r'del "{}"'
+                        command1 = [r'.\tools\ffmpeg.exe', '-i', file_name, '-vn', '-sn', '-v', '0', '-c:a', 'pcm_s16le', '-f', 'wav', ".\old_atemp.wav"]
+                        command2 = r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"'
+                        command3 = r'.\tools\x264_64-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{}"'
+                        command4 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'
+                        command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
+                        command6 = r'del "{}"'
 
                         try:
-                            subprocess.check_call(command1.format(file_name),shell=True,creationflags=CREATE_NO_WINDOW)
-                            subprocess.check_call(command2.format(file_name),creationflags=CREATE_NO_WINDOW)
-                            subprocess.check_call(command3.format(save_out_name),creationflags=CREATE_NO_WINDOW)
-                            os.remove("./old_atemp.mp4")
-                            os.remove("./old_vtemp.mp4")
+                            process1 = subprocess.Popen(command1,shell=True,
+                                                  creationflags=CREATE_NO_WINDOW)
+                            process1.wait()
+                            process1.kill()
+                            subprocess.check_call(command2,shell=True,
+                                                  creationflags=CREATE_NO_WINDOW
+                                                  )
+                            subprocess.check_call(command3.format(file_name),creationflags=CREATE_NO_WINDOW)
+                            subprocess.check_call(command4.format(save_out_name),creationflags=CREATE_NO_WINDOW)
                             # subprocess.check_call(command4,cwd=os.getcwd())
                             # 莫名其妙的占用进程，导致文件无法删除
                             current_pid = os.getpid()
@@ -135,12 +140,16 @@ class DragDropApp():
                                         break
 
                             time.sleep(1)
+                            video.close()
                             if self.delete_source_var.get():
                                 os.remove(file_name)
                                 
                         except Exception as err:
                             messagebox.showerror("错误","发生错误!\n"+err.__str__())
-                            
+                        finally:
+                            os.remove("./old_atemp.wav")
+                            os.remove("./old_atemp.mp4")
+                            os.remove("./old_vtemp.mp4")
 
 
             # 弹出信息框
