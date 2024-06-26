@@ -129,7 +129,7 @@ class DragDropApp():
                     if video.audio is None or self.delete_audio_var.get():
                         print("视频没有音频轨道")
 
-                        command1 = r'.\tools\x264_32-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
+                        command1 = r'.\tools\x264_64-8bit.exe --crf 23.5 --preset 8 -I 600 -r 4 -b 3 --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{}"  "{}"'
                         subprocess.check_call(command1.format(save_out_name,file_name),creationflags=CREATE_NO_WINDOW)
 
                         # # 莫名其妙的占用进程，导致文件无法删除
