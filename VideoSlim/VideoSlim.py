@@ -2,7 +2,6 @@
 import time
 from tkinter import *
 import webbrowser
-import psutil
 import windnd
 from tkinter import messagebox
 from moviepy.editor import *
@@ -17,7 +16,6 @@ extention_lists = [".mp4",".mkv",".mov",".avi"]
 def fast_scandir(dir, ext):    # dir: str, ext: list
     # Thanks to @not2qbit in https://stackoverflow.com/questions/18394147/how-to-do-a-recursive-sub-folder-search-and-return-files-in-a-list?answertab=modifieddesc#tab-top 
     subfolders, files = [], []
-
     for f in os.scandir(dir):
         if f.is_dir():
             subfolders.append(f.path)
@@ -36,7 +34,7 @@ class DragDropApp():
     def __init__(self, root):
 
         #定义当前版本号
-        self.Version_number = 'v1.4'
+        self.Version_number = 'v1.5'
 
         self.root = root
         self.root.title("VideoSlim 视频压缩  "+self.Version_number)
@@ -60,7 +58,7 @@ class DragDropApp():
 
         # 文件框
         self.text_box = Text(self.root, width=100, height=20)
-        self.text_box.place(x=24, y=40, width=480, height=232)
+        self.text_box.place(x=24, y=40, width=480, height=220)
 
         # 清空按钮
         button2_title = StringVar()
@@ -78,7 +76,7 @@ class DragDropApp():
         self.recurse_var = BooleanVar()
         recurse_check = Checkbutton(self.root, text="递归(至最深深度)子文件夹里面的视频", variable=self.recurse_var,
                                           onvalue=True, offvalue=False)
-        recurse_check.place(x=20,y=258)
+        recurse_check.place(x=20,y=261)
         
         self.delete_source_var = BooleanVar()
         delete_source_check = Checkbutton(self.root, text="完成后删除旧文件", variable=self.delete_source_var,
@@ -196,8 +194,7 @@ class DragDropApp():
         response = requests.get(url)
         data = response.json()
         if data and len(data):
-            latest_release = data[0]  # 第一个元素就是最新的Release
-
+            latest_release = data[0]
             if latest_release['tag_name'] != self.Version_number:
                 messagebox.showinfo("更新提示", "有新版本可用，请前往官网更新")
 
