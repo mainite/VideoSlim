@@ -190,7 +190,14 @@ class DragDropApp():
                         command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
                         command6 = r'del "{}"'
 
-                        # TODO: 可由中途崩溃触发，发现如果存在 old_atemp.mp4 等文件的时候，会卡进程（因为 ffmpeg 会因为文件重名等待覆写确认 (y/n) ）
+                        # 发现如果已经存在 old_atemp.mp4 等文件的时候，会卡住（因为 ffmpeg 会等待文件覆写确认 (y/n) ）
+                        # 检查如果上次的临时文件还在，则删除
+                        if os.path.exists("./old_atemp.wav"):
+                            os.remove("./old_atemp.wav")
+                        if os.path.exists("./old_atemp.mp4"):
+                            os.remove("./old_atemp.mp4")
+                        if os.path.exists("./old_vtemp.mp4"):
+                            os.remove("./old_vtemp.mp4")
 
                         try:
                             process1 = subprocess.Popen(command1, shell=True,
