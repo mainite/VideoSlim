@@ -104,8 +104,11 @@ class DragDropApp():
         self.configs_name_list = []
         self.configs_dict = {}
         self.read_config()
-        print(self.configs_name_list)
-        print(self.configs_dict)
+
+        # 如果没有检测到配置文件，退出
+        if len(self.configs_name_list) <= 0:
+            self.root.destroy()
+
         self.select_config_name = StringVar(self.root, value="default")
         config_combobox = tkinter.ttk.Combobox(self.root, height=10, width=10, state='readonly',
                                                values=self.configs_name_list, textvariable=self.select_config_name)
@@ -242,12 +245,39 @@ class DragDropApp():
         读取配置参数文件
         :return: void
         """
-
         try:
+            if not os.path.exists("config.json"):
+                messagebox.showwarning("警告", "没有检测到配置文件，将生成一个配置文件")
+                f = open("config.json", "w", encoding="utf-8")
+                f.write(r'''{
+  "comment": "参数配置文件，不写会取用内置默认值。如果读取不到，说明配置文件不合法，请检查配置文件。具体参数的意思可以在README.md中看到",
+  "configs": {
+    "default": {
+      "x264": {
+        "crf": 23.5,
+        "preset": 8,
+        "I": 600,
+        "r": 4,
+        "b": 3
+      }
+    },
+    "custom_template": {
+      "x264": {
+        "crf": 23.5,
+        "preset": 8,
+        "I": 600,
+        "r": 4,
+        "b": 3
+      }
+    }
+  }
+}''')
+                f.close()
+                return
+
             configs_file = open("config.json", encoding="utf-8")
             configs_json = json.load(configs_file)
             configs = configs_json["configs"]
-            print(configs)
         except:
             # 读取失败，放弃读取
             return
@@ -280,16 +310,19 @@ class DragDropApp():
                 messagebox.showwarning("警告", "读取到重名的配置文件 {}\n将仅读取最前的配置".format(name))
                 continue
             if param["x264"]["crf"] > 51 or param["x264"]["crf"] < 0:
-                messagebox.showwarning("警告", "配置文件 {} 中的 crf 参数不合法（读取的值：{}）\n将放弃读取该配置".format(name, param["crf"]))
+                messagebox.showwarning("警告",
+                                       "配置文件 {} 中的 crf 参数不合法\n将放弃读取该配置".format(name))
                 continue
             if param["x264"]["preset"] < 0 or param["x264"]["preset"] > 9:
-                messagebox.showwarning("警告", "配置文件 {} 中的 preset 参数不合法（读取的值：{}）\n将放弃读取该配置".format(name, param["crf"]))
+                messagebox.showwarning("警告",
+                                       "配置文件 {} 中的 preset 参数不合法\n将放弃读取该配置".format(name))
                 continue
 
             # 合法，登记配置
             self.configs_dict[name] = param
             self.configs_name_list.append(name)
 
+        configs_file.close()
         return
 
 

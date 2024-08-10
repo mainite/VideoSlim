@@ -12,7 +12,7 @@
     },
     "custom_template": {
       "x264": {
-        "crf": 23.5,
+        "crf": 30,
         "preset": 8,
         "I": 600,
         "r": 4,
