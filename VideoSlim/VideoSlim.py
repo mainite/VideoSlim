@@ -212,6 +212,7 @@ class DragDropApp():
         # 如果没有检测到配置文件，退出
         if len(self.configs_name_list) <= 0:
             self.root.destroy()
+            return
 
         self.select_config_name = StringVar(self.root, value="default")
         config_combobox = tkinter.ttk.Combobox(self.root, height=10, width=10, state='readonly',
