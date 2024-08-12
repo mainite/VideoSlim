@@ -32,6 +32,67 @@ def fast_scandir(dir, ext):  # dir: str, ext: list
         files.extend(f)
     return subfolders, files
 
+class Config:
+    """
+    配置类
+    """
+    class __X264:
+        """
+        X264配置类
+        """
+        def __init__(self):
+            # 默认配置
+            self.crf = 23.5
+            self.preset = 8
+            self.I = 600
+            self.r = 4
+            self.b = 3
+
+        def __init__(self, val: dict):
+            self.crf = val["crf"]
+            self.preset = val["preset"]
+            self.I = val["I"]
+            self.r = val["r"]
+            self.b = val["b"]
+
+        @property
+        def crf(self):
+            return self.crf
+
+        @crf.setter
+        def crf(self, val):
+            """
+            设置crf值 [0,51]
+            :param val:
+            :return:
+            """
+            val = max(0, val)
+            val = min(51, val)
+            self.crf = val
+
+        @property
+        def preset(self):
+            return self.preset
+
+        @preset.setter
+        def preset(self, val):
+            """
+            设置preset值 [0,9]
+            :param val:
+            :return:
+            """
+            val = max(0, val)
+            val = min(9, val)
+            self.preset = val
+
+    def __init__(self):
+        self.name = "Default"
+        self.X264 = self.__X264()
+
+    def __init__(self, val: dict):
+        self.name = val["name"]
+        self.X264 = self.__X264(val["x264"])
+
 
 class DragDropApp():
     def __init__(self, root):
