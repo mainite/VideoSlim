@@ -32,32 +32,41 @@ def fast_scandir(dir, ext):  # dir: str, ext: list
         files.extend(f)
     return subfolders, files
 
+
 class Config:
     """
     配置类
     """
-    class __X264:
+
+    class X264:
         """
         X264配置类
         """
+
+        _crf = 23.5
+        _preset = 8
+        I = 600
+        r = 4
+        b = 3
+
         def __init__(self):
             # 默认配置
-            self.crf = 23.5
-            self.preset = 8
+            self._crf = 23.5
+            self._preset = 8
             self.I = 600
             self.r = 4
             self.b = 3
 
         def __init__(self, val: dict):
-            self.crf = val["crf"]
-            self.preset = val["preset"]
+            self._crf = val["crf"]
+            self._preset = val["preset"]
             self.I = val["I"]
             self.r = val["r"]
             self.b = val["b"]
 
         @property
         def crf(self):
-            return self.crf
+            return self._crf
 
         @crf.setter
         def crf(self, val):
@@ -68,11 +77,11 @@ class Config:
             """
             val = max(0, val)
             val = min(51, val)
-            self.crf = val
+            self._crf = val
 
         @property
         def preset(self):
-            return self.preset
+            return self._preset
 
         @preset.setter
         def preset(self, val):
@@ -83,15 +92,49 @@ class Config:
             """
             val = max(0, val)
             val = min(9, val)
-            self.preset = val
+            self._preset = val
 
     def __init__(self):
         self.name = "Default"
-        self.X264 = self.__X264()
+        self.X264 = self.X264()
 
     def __init__(self, val: dict):
+        """
+        使用完整的配置字典进行初始化
+        :param val: 配置字典，需要完整
+        """
         self.name = val["name"]
-        self.X264 = self.__X264(val["x264"])
+        self.X264 = self.X264(val["x264"])
+
+    @staticmethod
+    def fixDict(config_dict: dict) -> dict:
+        """
+        修复残缺参数的配置字典为完整的配置字典
+        :param config_dict: 配置字典
+        :return:
+        """
+        # 检查参数是否完整
+        # x264
+        if "x264" not in config_dict:
+            config_dict["x264"] = {
+                "crf": 23.5,
+                "preset": 8,
+                "I": 600,
+                "r": 4,
+                "b": 3
+            }
+        if "crf" not in config_dict["x264"]:
+            config_dict["x264"]["crf"] = 23.5
+        if "preset" not in config_dict["x264"]:
+            config_dict["x264"]["preset"] = 8
+        if "I" not in config_dict["x264"]:
+            config_dict["x264"]["I"] = 600
+        if "r" not in config_dict["x264"]:
+            config_dict["x264"]["r"] = 4
+        if "b" not in config_dict["x264"]:
+            config_dict["x264"]["b"] = 3
+
+        return config_dict
 
 
 class DragDropApp():
@@ -218,15 +261,8 @@ class DragDropApp():
                     if video.audio is None or self.delete_audio_var.get():
                         print("视频没有音频轨道")
 
-                        command1 = r'.\tools\x264_64-8bit.exe --crf {x264_crf} --preset {x264_preset} -I {x264_I} -r {x264_r} -b {x264_b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{file_name}"'
-                        subprocess.check_call(command1.format(save_out_name=save_out_name,
-                                                              file_name=file_name,
-                                                              x264_crf=config["x264"]["crf"],
-                                                              x264_preset=config["264"]["preset"],
-                                                              x264_I=config["x264"]["I"],
-                                                              x264_r=config["x264"]["r"],
-                                                              x264_b=config["x264"]["b"]),
-                                              creationflags=CREATE_NO_WINDOW)
+                        command1 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{file_name}"'
+                        subprocess.check_call(command1, creationflags=CREATE_NO_WINDOW)
 
                         # # 莫名其妙的占用进程，导致文件无法删除
                         # current_pid = os.getpid()
@@ -246,7 +282,7 @@ class DragDropApp():
                         command1 = [r'.\tools\ffmpeg.exe', '-i', file_name, '-vn', '-sn', '-v', '0', '-c:a',
                                     'pcm_s16le', '-f', 'wav', ".\old_atemp.wav"]
                         command2 = r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"'
-                        command3 = r'.\tools\x264_64-8bit.exe --crf {x264_crf} --preset {x264_preset} -I {x264_I} -r {x264_r} -b {x264_b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{file_name}"'
+                        command3 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{file_name}"'
                         command4 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'
                         command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
                         command6 = r'del "{}"'
@@ -267,13 +303,7 @@ class DragDropApp():
                             process1.kill()
                             subprocess.check_call(command2, shell=True,
                                                   creationflags=CREATE_NO_WINDOW)
-                            subprocess.check_call(command3.format(file_name=file_name,
-                                                                  x264_crf=config["x264"]["crf"],
-                                                                  x264_preset=config["x264"]["preset"],
-                                                                  x264_I=config["x264"]["I"],
-                                                                  x264_r=config["x264"]["r"],
-                                                                  x264_b=config["x264"]["b"]),
-                                                  creationflags=CREATE_NO_WINDOW)
+                            subprocess.check_call(command3, creationflags=CREATE_NO_WINDOW)
                             subprocess.check_call(command4.format(save_out_name), creationflags=CREATE_NO_WINDOW)
                             # subprocess.check_call(command4,cwd=os.getcwd())
                             # 莫名其妙的占用进程，导致文件无法删除
@@ -373,6 +403,7 @@ class DragDropApp():
                 param["x264"]["b"] = 3
 
             print(name, param)
+
             # 检查参数是否合法
             if name in self.configs_name_list or name in self.configs_dict:
                 messagebox.showwarning("警告", "读取到重名的配置文件 {}\n将仅读取最前的配置".format(name))
@@ -387,7 +418,9 @@ class DragDropApp():
                 continue
 
             # 合法，登记配置
-            self.configs_dict[name] = param
+            config_dict = param
+            config_dict["name"] = name
+            self.configs_dict[name] = Config(config_dict)
             self.configs_name_list.append(name)
 
         configs_file.close()
