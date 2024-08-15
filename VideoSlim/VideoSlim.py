@@ -376,11 +376,16 @@ class DragDropApp():
     },
     "custom_template": {
       "x264": {
-        "crf": 23.5,
+        "crf": 30,
         "preset": 8,
         "I": 600,
         "r": 4,
         "b": 3
+      }
+    },
+    "default_gpu": {
+      "x264": {
+        "opencl_acceleration": true
       }
     }
   }
