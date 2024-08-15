@@ -392,26 +392,30 @@ class DragDropApp():
             return
 
         for name, param in configs.items():
-            # 检查参数是否完整
-            # x264
-            if "x264" not in param:
-                param["x264"] = {
-                    "crf": 23.5,
-                    "preset": 8,
-                    "I": 600,
-                    "r": 4,
-                    "b": 3
-                }
-            if "crf" not in param["x264"]:
-                param["x264"]["crf"] = 23.5
-            if "preset" not in param["x264"]:
-                param["x264"]["preset"] = 8
-            if "I" not in param["x264"]:
-                param["x264"]["I"] = 600
-            if "r" not in param["x264"]:
-                param["x264"]["r"] = 4
-            if "b" not in param["x264"]:
-                param["x264"]["b"] = 3
+            # # 检查参数是否完整
+            # # x264
+            # if "x264" not in param:
+            #     param["x264"] = {
+            #         "crf": 23.5,
+            #         "preset": 8,
+            #         "I": 600,
+            #         "r": 4,
+            #         "b": 3
+            #     }
+            # if "crf" not in param["x264"]:
+            #     param["x264"]["crf"] = 23.5
+            # if "preset" not in param["x264"]:
+            #     param["x264"]["preset"] = 8
+            # if "I" not in param["x264"]:
+            #     param["x264"]["I"] = 600
+            # if "r" not in param["x264"]:
+            #     param["x264"]["r"] = 4
+            # if "b" not in param["x264"]:
+            #     param["x264"]["b"] = 3
+            # if "opencl_acceleration" not in param["x264"]:
+            #     param["x264"]["opencl_acceleration"] = False
+
+            param = Config.fixDict(param)
 
             print(name, param)
 
