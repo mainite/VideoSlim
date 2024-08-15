@@ -333,9 +333,13 @@ class DragDropApp():
                         except Exception as err:
                             messagebox.showerror("错误", "发生错误!\n" + err.__str__())
                         finally:
-                            os.remove("./old_atemp.wav")
-                            os.remove("./old_atemp.mp4")
-                            os.remove("./old_vtemp.mp4")
+                            # 安全删除
+                            if os.path.exists("./old_atemp.wav"):
+                                os.remove("./old_atemp.wav")
+                            if os.path.exists("./old_atemp.mp4"):
+                                os.remove("./old_atemp.mp4")
+                            if os.path.exists("./old_vtemp.mp4"):
+                                os.remove("./old_vtemp.mp4")
 
             # 弹出信息框
             messagebox.showinfo("提示", "转换完成")
