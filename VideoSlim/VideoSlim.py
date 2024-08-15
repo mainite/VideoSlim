@@ -48,11 +48,13 @@ class Config:
         I = 600
         r = 4
         b = 3
+        opencl_accerleration = False
 
         def __init__(self):
             # 默认配置
             self._crf = 23.5
             self._preset = 8
+            self.opencl_acceleration = False
             self.I = 600
             self.r = 4
             self.b = 3
@@ -60,6 +62,7 @@ class Config:
         def __init__(self, val: dict):
             self._crf = val["crf"]
             self._preset = val["preset"]
+            self.opencl_acceleration = val["opencl_acceleration"]
             self.I = val["I"]
             self.r = val["r"]
             self.b = val["b"]
@@ -121,7 +124,8 @@ class Config:
                 "preset": 8,
                 "I": 600,
                 "r": 4,
-                "b": 3
+                "b": 3,
+                "opencl_acceleration": False
             }
         if "crf" not in config_dict["x264"]:
             config_dict["x264"]["crf"] = 23.5
@@ -133,6 +137,8 @@ class Config:
             config_dict["x264"]["r"] = 4
         if "b" not in config_dict["x264"]:
             config_dict["x264"]["b"] = 3
+        if "opencl_acceleration" not in config_dict["x264"]:
+            config_dict["x264"]["opencl_acceleration"] = True
 
         return config_dict
 
@@ -287,6 +293,10 @@ class DragDropApp():
                         command4 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'
                         command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
                         command6 = r'del "{}"'
+
+                        # opencl 使用 gpu 辅助进行
+                        if config.X264.opencl_acceleration:
+                            command3 += ' --opencl'
 
                         # 发现如果已经存在 old_atemp.mp4 等文件的时候，会卡住（因为 ffmpeg 会等待文件覆写确认 (y/n) ）
                         # 检查如果上次的临时文件还在，则删除
