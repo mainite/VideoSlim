@@ -254,12 +254,15 @@ class DragDropApp():
             item = self.queue.get()
             if item["action"] == "start":
                 # 开始处理
-                self.Label1_title.set(f"[{item["index"]}/{item["total"]}]当前处理文件：{item["filename"]}")
+                self.Label1_title.set(f"[{item["index"]}/{item["total"]}] 当前处理文件：{item["filename"]}")
                 self.label1.update()
             elif item["action"] == "error":
                 # 返回错误
                 messagebox.showerror("错误", f"发生错误！\n{item["err"].__str__()}")
+                self.button1.config(state=tkinter.NORMAL)
             elif item["action"] == "finish_all":
+                self.Label1_title.set(f"处理完成！已经处理 {item["total"]} 个文件")
+                self.label1.update()
                 messagebox.showinfo("提示", "转换完成")
                 self.button1.config(state=tkinter.NORMAL)
             else:
@@ -267,8 +270,8 @@ class DragDropApp():
 
         self.root.after(1000, self.check_message_queue)
 
-    # 压缩
-    def compress(self, config, delete_audio, delete_source, lines):
+    # 压缩子线程
+    def compress_worker(self, config, delete_audio, delete_source, lines):
         index = 0
         for file_name in lines:
             index += 1
@@ -299,20 +302,19 @@ class DragDropApp():
             else:
                 logging.info("视频有音频轨道")
 
-                commands.append(
-                    rf'.\tools\ffmpeg.exe -i {file_name} -vn -sn -v 0 -c:a pcm_s16le -f wav ".\old_atemp.wav"')
-
-                commands.append(
-                    r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"')
-
+                command1 = rf'.\tools\ffmpeg.exe -i "{file_name}" -vn -sn -v 0 -c:a pcm_s16le -f wav ".\old_atemp.wav"'
+                command2 = r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"'
                 command3 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{file_name}"'
+                command4 = rf'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{self.GetSaveOutFileName(file_name)}"'
+
                 # opencl 使用 gpu 辅助进行
                 if config.X264.opencl_acceleration:
                     command3 += ' --opencl'
-                commands.append(command3)
 
-                commands.append(
-                    rf'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{self.GetSaveOutFileName(file_name)}"')
+                commands.append(command1)
+                commands.append(command2)
+                commands.append(command3)
+                commands.append(command4)
 
                 time.sleep(1)
 
@@ -339,7 +341,7 @@ class DragDropApp():
 
             video.close()
 
-        self.queue.put({"action": "finish_all"})
+        self.queue.put({"action": "finish_all", "total": len(lines)})
 
     def DoCompress(self):
         # 缓存选择的配置文件，补充配置缺失的值
@@ -368,7 +370,7 @@ class DragDropApp():
                 continue
 
         # 子线程压缩
-        threading.Thread(target=self.compress, args=(config, delete_audio, delete_source, lines)).start()
+        threading.Thread(target=self.compress_worker, args=(config, delete_audio, delete_source, lines)).start()
         self.button1.config(state=tkinter.DISABLED)
 
     def version_number_detection(self):
@@ -479,7 +481,10 @@ class DragDropApp():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.INFO,
+                        filename='log',
+                        filemode='w',
+                        format='%(asctime)s - %(levelname)s - %(message)s')
     root = Tk()
     app = DragDropApp(root)
     t1 = threading.Thread(target=app.version_number_detection)
