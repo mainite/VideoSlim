@@ -150,7 +150,7 @@ class DragDropApp():
     def __init__(self, root):
 
         # 定义当前版本号
-        self.Version_number = 'v1.6'
+        self.Version_number = 'v1.7'
 
         self.root = root
         self.root.title("VideoSlim 视频压缩  " + self.Version_number)
