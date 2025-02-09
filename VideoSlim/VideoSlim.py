@@ -1,6 +1,9 @@
 # Copyright (c) <2023> <hotMonk> <inite.cn>
 import time
+import tkinter
 import tkinter.ttk
+import logging
+from queue import Queue
 from tkinter import *
 import webbrowser
 import windnd
@@ -183,8 +186,8 @@ class DragDropApp():
         # 压缩按钮
         button1_title = StringVar()
         button1_title.set('压缩')
-        button1 = Button(self.root, textvariable=button1_title, command=self.DoCompress)  # ,command=按钮点击触发的函数
-        button1.place(x=280, y=291, width=88, height=40)
+        self.button1 = Button(self.root, textvariable=button1_title, command=self.DoCompress)  # ,command=按钮点击触发的函数
+        self.button1.place(x=280, y=291, width=88, height=40)
 
         # 选择框
         self.recurse_var = BooleanVar()
@@ -225,6 +228,10 @@ class DragDropApp():
                                                values=self.configs_name_list, textvariable=self.select_config_name)
         config_combobox.place(x=388, y=291)
 
+        # 压缩子进程通讯
+        self.queue = Queue()
+        self.root.after(1000, self.check_message_queue)
+
     def drop_file(self, event):
         files = '\n'.join((item.decode('gbk') for item in event))
         self.text_box.insert(END, files + "\n")
@@ -232,117 +239,139 @@ class DragDropApp():
     def ClearContent(self):
         self.text_box.delete("1.0", END)
 
-    def GetSaveOutFileName(self, filename):
+    @staticmethod
+    def GetSaveOutFileName(filename):
         file_name, file_ext = os.path.splitext(filename)
         save_out_name = file_name + "_x264.mp4"
         return save_out_name
 
+    def check_message_queue(self):
+        """
+        定期检查消息队列
+        :return:
+        """
+        while not self.queue.empty():
+            item = self.queue.get()
+            if item["action"] == "start":
+                # 开始处理
+                self.Label1_title.set(f"[{item["index"]}/{item["total"]}] 当前处理文件：{item["filename"]}")
+                self.label1.update()
+            elif item["action"] == "error":
+                # 返回错误
+                messagebox.showerror("错误", f"发生错误！\n{item["err"].__str__()}")
+                self.button1.config(state=tkinter.NORMAL)
+            elif item["action"] == "finish_all":
+                self.Label1_title.set(f"处理完成！已经处理 {item["total"]} 个文件")
+                self.label1.update()
+                messagebox.showinfo("提示", "转换完成")
+                self.button1.config(state=tkinter.NORMAL)
+            else:
+                pass
+
+        self.root.after(1000, self.check_message_queue)
+
+    # 压缩子线程
+    def compress_worker(self, config, delete_audio, delete_source, lines):
+        index = 0
+        for file_name in lines:
+            index += 1
+            if file_name == "":
+                continue
+
+            # 如果已经存在 old_atemp.mp4 等文件的时候，会卡住（因为 ffmpeg 会等待文件覆写确认 (y/n) ）
+            # 检查如果上次的临时文件还在，则删除
+            if os.path.exists("./old_atemp.wav"):
+                os.remove("./old_atemp.wav")
+            if os.path.exists("./old_atemp.mp4"):
+                os.remove("./old_atemp.mp4")
+            if os.path.exists("./old_vtemp.mp4"):
+                os.remove("./old_vtemp.mp4")
+
+            save_out_name = self.GetSaveOutFileName(file_name)
+
+            # 判断视频是否拥有音频轨道
+            video = VideoFileClip(file_name)
+            commands = []
+            if video.audio is None or delete_audio:
+                logging.info("视频没有音频轨道")
+
+                command1 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{file_name}"'
+                commands.append(command1)
+
+                time.sleep(1)
+            else:
+                logging.info("视频有音频轨道")
+
+                command1 = rf'.\tools\ffmpeg.exe -i "{file_name}" -vn -sn -v 0 -c:a pcm_s16le -f wav ".\old_atemp.wav"'
+                command2 = r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"'
+                command3 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{file_name}"'
+                command4 = rf'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{self.GetSaveOutFileName(file_name)}"'
+
+                # opencl 使用 gpu 辅助进行
+                if config.X264.opencl_acceleration:
+                    command3 += ' --opencl'
+
+                commands.append(command1)
+                commands.append(command2)
+                commands.append(command3)
+                commands.append(command4)
+
+                time.sleep(1)
+
+            try:
+                self.queue.put({"action": "start", "index": index, "total": len(lines), "filename": file_name})
+                for command in commands:
+                    logging.info(f"正在执行命令: {command}")
+                    subprocess.check_call(command, creationflags=CREATE_NO_WINDOW)
+                if delete_source:
+                    os.remove(file_name)
+            except Exception as e:
+                logging.error(f"命令执行失败: {e}")
+                self.queue.put({"action": "error", "err": e})
+                return
+            finally:
+                # 删除临时文件
+                if os.path.exists("./old_atemp.wav"):
+                    os.remove("./old_atemp.wav")
+                if os.path.exists("./old_atemp.mp4"):
+                    os.remove("./old_atemp.mp4")
+                if os.path.exists("./old_vtemp.mp4"):
+                    os.remove("./old_vtemp.mp4")
+            self.queue.put({"action": "finish", "index": index, "filename": file_name})
+
+            video.close()
+
+        self.queue.put({"action": "finish_all", "total": len(lines)})
+
     def DoCompress(self):
         # 缓存选择的配置文件，补充配置缺失的值
         config = self.configs_dict[self.select_config_name.get()]
+        delete_source = self.delete_source_var.get()
+        delete_audio = self.delete_audio_var.get()
 
-        # 压缩
+        # 获取文件列表
         text_content = self.text_box.get("1.0", END)
-        if text_content != "":
-            lines = text_content.splitlines()
-            if len(lines) <= 1:
-                messagebox.showwarning("提示", "请先拖拽文件到此处")
-                return False
-            lines.remove("")
-            index = 0
-            for file_name in lines:
-                index += 1
-                if os.path.isdir(file_name):
-                    _, files = fast_scandir(file_name, extention_lists)
-                    lines.extend(files)
-                    self.Label1_title.set(f"[{index}/{len(lines)}]从该文件夹递归添加文件：{os.path.basename(file_name)}")
-                    self.label1.update()
-                    time.sleep(3)
-                    continue
-                if file_name != "":
-                    self.Label1_title.set(f"[{index}/{len(lines)}]当前处理文件：{os.path.basename(file_name)}")
-                    self.label1.update()
-                    save_out_name = self.GetSaveOutFileName(file_name)
-                    # 判断视频是否拥有音频轨道
-                    video = VideoFileClip(file_name)
-                    if video.audio is None or self.delete_audio_var.get():
-                        print("视频没有音频轨道")
+        if text_content == "":
+            messagebox.showwarning("提示", "请先拖拽文件到此处")
+            return False
 
-                        command1 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{file_name}"'
-                        subprocess.check_call(command1, creationflags=CREATE_NO_WINDOW)
+        lines = text_content.splitlines()
+        if len(lines) <= 1:
+            messagebox.showwarning("提示", "请先拖拽文件到此处")
+            return False
+        lines.remove("")
 
-                        # # 莫名其妙的占用进程，导致文件无法删除
-                        # current_pid = os.getpid()
-                        # for proc in psutil.process_iter():
-                        #     if proc.ppid() == current_pid:
-                        #         if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
-                        #             proc.kill()
-                        #             break
+        # 预处理，将文件夹处理成文件
+        for file_name in lines:
+            if os.path.isdir(file_name):
+                _, files = fast_scandir(file_name, extention_lists)
+                lines.extend(files)
+                time.sleep(3)
+                continue
 
-                        time.sleep(1)
-                        if self.delete_source_var.get():
-                            os.remove(file_name)
-
-
-                    else:
-                        print("视频有音频轨道")
-                        command1 = [r'.\tools\ffmpeg.exe', '-i', file_name, '-vn', '-sn', '-v', '0', '-c:a',
-                                    'pcm_s16le', '-f', 'wav', ".\old_atemp.wav"]
-                        command2 = r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"'
-                        command3 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{file_name}"'
-                        command4 = r'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{}"'
-                        command5 = "del .\\old_atemp.mp4 .\\old_vtemp.mp4"
-                        command6 = r'del "{}"'
-
-                        # opencl 使用 gpu 辅助进行
-                        if config.X264.opencl_acceleration:
-                            command3 += ' --opencl'
-
-                        # 发现如果已经存在 old_atemp.mp4 等文件的时候，会卡住（因为 ffmpeg 会等待文件覆写确认 (y/n) ）
-                        # 检查如果上次的临时文件还在，则删除
-                        if os.path.exists("./old_atemp.wav"):
-                            os.remove("./old_atemp.wav")
-                        if os.path.exists("./old_atemp.mp4"):
-                            os.remove("./old_atemp.mp4")
-                        if os.path.exists("./old_vtemp.mp4"):
-                            os.remove("./old_vtemp.mp4")
-
-                        try:
-                            process1 = subprocess.Popen(command1, shell=True,
-                                                        creationflags=CREATE_NO_WINDOW)
-                            process1.wait()
-                            process1.kill()
-                            subprocess.check_call(command2, shell=True,
-                                                  creationflags=CREATE_NO_WINDOW)
-                            subprocess.check_call(command3, creationflags=CREATE_NO_WINDOW)
-                            subprocess.check_call(command4.format(save_out_name), creationflags=CREATE_NO_WINDOW)
-                            # subprocess.check_call(command4,cwd=os.getcwd())
-                            # 莫名其妙的占用进程，导致文件无法删除
-                            # current_pid = os.getpid()
-                            # for proc in psutil.process_iter():
-                            #     if proc.ppid() == current_pid:
-                            #         if proc.name() == 'ffmpeg-win64-v4.2.2.exe':
-                            #             proc.kill()
-                            #             break
-
-                            time.sleep(1)
-                            video.close()
-                            if self.delete_source_var.get():
-                                os.remove(file_name)
-
-                        except Exception as err:
-                            messagebox.showerror("错误", "发生错误!\n" + err.__str__())
-                        finally:
-                            # 安全删除
-                            if os.path.exists("./old_atemp.wav"):
-                                os.remove("./old_atemp.wav")
-                            if os.path.exists("./old_atemp.mp4"):
-                                os.remove("./old_atemp.mp4")
-                            if os.path.exists("./old_vtemp.mp4"):
-                                os.remove("./old_vtemp.mp4")
-
-            # 弹出信息框
-            messagebox.showinfo("提示", "转换完成")
+        # 子线程压缩
+        threading.Thread(target=self.compress_worker, args=(config, delete_audio, delete_source, lines)).start()
+        self.button1.config(state=tkinter.DISABLED)
 
     def version_number_detection(self):
         url = f"https://api.github.com/repos/mainite/VideoSlim/releases"
@@ -426,7 +455,7 @@ class DragDropApp():
 
             param = Config.fixDict(param)
 
-            print(name, param)
+            logging.info("读取到配置文件 {}，参数为 {}".format(name, param))
 
             # 检查参数是否合法
             if name in self.configs_name_list or name in self.configs_dict:
@@ -452,6 +481,10 @@ class DragDropApp():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO,
+                        filename='log',
+                        filemode='w',
+                        format='%(asctime)s - %(levelname)s - %(message)s')
     root = Tk()
     app = DragDropApp(root)
     t1 = threading.Thread(target=app.version_number_detection)
