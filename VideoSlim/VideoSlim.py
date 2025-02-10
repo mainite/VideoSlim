@@ -171,7 +171,7 @@ class DragDropApp():
         self.Label1_title = StringVar()
         self.Label1_title.set('将视频拖拽到此窗口:')
         self.label1 = Label(self.root, textvariable=self.Label1_title, anchor=W)
-        self.label1.place(x=26, y=8, width=300, height=24)
+        self.label1.place(x=26, y=8, width=380, height=24)
 
         # 文件框
         self.text_box = Text(self.root, width=100, height=20)
@@ -240,7 +240,7 @@ class DragDropApp():
         self.text_box.delete("1.0", END)
 
     @staticmethod
-    def GetSaveOutFileName(filename):
+    def get_save_out_file_name(filename):
         file_name, file_ext = os.path.splitext(filename)
         save_out_name = file_name + "_x264.mp4"
         return save_out_name
@@ -270,8 +270,20 @@ class DragDropApp():
 
         self.root.after(1000, self.check_message_queue)
 
-    # 压缩子线程
+    @staticmethod
+    def clear_temp_file():
+        """清理临时文件"""
+        if os.path.exists("./pre_temp.mp4"):
+            os.remove("./pre_temp.mp4")
+        if os.path.exists("./old_atemp.wav"):
+            os.remove("./old_atemp.wav")
+        if os.path.exists("./old_atemp.mp4"):
+            os.remove("./old_atemp.mp4")
+        if os.path.exists("./old_vtemp.mp4"):
+            os.remove("./old_vtemp.mp4")
+
     def compress_worker(self, config, delete_audio, delete_source, lines):
+        """压缩子线程"""
         index = 0
         for file_name in lines:
             index += 1
@@ -280,16 +292,9 @@ class DragDropApp():
 
             # 如果已经存在 old_atemp.mp4 等文件的时候，会卡住（因为 ffmpeg 会等待文件覆写确认 (y/n) ）
             # 检查如果上次的临时文件还在，则删除
-            if os.path.exists("./pre_temp.mp4"):
-                os.remove("./pre_temp.mp4")
-            if os.path.exists("./old_atemp.wav"):
-                os.remove("./old_atemp.wav")
-            if os.path.exists("./old_atemp.mp4"):
-                os.remove("./old_atemp.mp4")
-            if os.path.exists("./old_vtemp.mp4"):
-                os.remove("./old_vtemp.mp4")
+            self.clear_temp_file()
 
-            save_out_name = self.GetSaveOutFileName(file_name)
+            save_out_name = self.get_save_out_file_name(file_name)
 
             commands = []
 
@@ -297,15 +302,15 @@ class DragDropApp():
             media_info = MediaInfo.parse(file_name)
 
             # 原先处理的文件名（为了让下面格式化字符串的时候选中 可能提前处理过的视频）
-            old_file_name = file_name
+            cur_video_file_name = file_name
 
             # 判断视频是否有 rotation side_data
             # 如果有就提前处理
             if hasattr(media_info.video_tracks[0], "other_rotation"):
                 logging.info("视频元信息含有旋转")
                 try:
-                    commands.append(rf'.\tools\ffmpeg.exe -i "{file_name}" ".\pre_temp.mp4"')
-                    file_name = r".\pre_temp.mp4"
+                    commands.append(rf'.\tools\ffmpeg.exe -i "{cur_video_file_name}" ".\pre_temp.mp4"')
+                    cur_video_file_name = r".\pre_temp.mp4"
                 except Exception as err:
                     self.queue.put({"action": "error", "err": err})
                     return
@@ -318,16 +323,16 @@ class DragDropApp():
             if len(media_info.audio_tracks) == 0 or delete_audio:
                 logging.info("视频没有音频轨道")
 
-                command1 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{file_name}"'
+                command1 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{cur_video_file_name}"'
                 commands.append(command1)
 
                 time.sleep(1)
             else:
                 logging.info("视频有音频轨道")
 
-                command1 = rf'.\tools\ffmpeg.exe -i "{file_name}" -vn -sn -v 0 -c:a pcm_s16le -f wav ".\old_atemp.wav"'
+                command1 = rf'.\tools\ffmpeg.exe -i "{cur_video_file_name}" -vn -sn -v 0 -c:a pcm_s16le -f wav ".\old_atemp.wav"'
                 command2 = r'.\tools\neroAacEnc.exe -ignorelength -lc -br 128000 -if ".\old_atemp.wav" -of ".\old_atemp.mp4"'
-                command3 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{file_name}"'
+                command3 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o ".\old_vtemp.mp4"  "{cur_video_file_name}"'
                 command4 = rf'.\tools\mp4box.exe -add ".\old_vtemp.mp4#trackID=1:name=" -add ".\old_atemp.mp4#trackID=1:name=" -new "{save_out_name}"'
 
                 # opencl 使用 gpu 辅助进行
@@ -340,8 +345,6 @@ class DragDropApp():
                 commands.append(command4)
 
                 time.sleep(1)
-
-            file_name = old_file_name
 
             try:
                 self.queue.put({"action": "start", "index": index, "total": len(lines), "filename": file_name})
@@ -356,14 +359,7 @@ class DragDropApp():
                 return
             finally:
                 # 删除临时文件
-                if os.path.exists("./pre_temp.mp4"):
-                    os.remove("./pre_temp.mp4")
-                if os.path.exists("./old_atemp.wav"):
-                    os.remove("./old_atemp.wav")
-                if os.path.exists("./old_atemp.mp4"):
-                    os.remove("./old_atemp.mp4")
-                if os.path.exists("./old_vtemp.mp4"):
-                    os.remove("./old_vtemp.mp4")
+                self.clear_temp_file()
             self.queue.put({"action": "finish", "index": index, "filename": file_name})
 
         self.queue.put({"action": "finish_all", "total": len(lines)})
