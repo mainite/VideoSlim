@@ -8,12 +8,12 @@ from tkinter import *
 import webbrowser
 import windnd
 from tkinter import messagebox
-from moviepy.editor import *
 import requests
 import os
 import threading
 import subprocess
 from subprocess import CREATE_NO_WINDOW
+from pymediainfo import MediaInfo
 import json
 
 extention_lists = [".mp4", ".mkv", ".mov", ".avi"]
@@ -289,10 +289,12 @@ class DragDropApp():
 
             save_out_name = self.GetSaveOutFileName(file_name)
 
+            # 读取视频元信息
+            media_info = MediaInfo.parse(file_name)
+
             # 判断视频是否拥有音频轨道
-            video = VideoFileClip(file_name)
             commands = []
-            if video.audio is None or delete_audio:
+            if len(media_info.audio_tracks) == 0 or delete_audio:
                 logging.info("视频没有音频轨道")
 
                 command1 = rf'.\tools\x264_64-8bit.exe --crf {config.X264.crf} --preset {config.X264.preset} -I {config.X264.I} -r {config.X264.r} -b {config.X264.b} --me umh -i 1 --scenecut 60 -f 1:1 --qcomp 0.5 --psy-rd 0.3:0 --aq-mode 2 --aq-strength 0.8 -o "{save_out_name}"  "{file_name}"'
@@ -338,8 +340,6 @@ class DragDropApp():
                 if os.path.exists("./old_vtemp.mp4"):
                     os.remove("./old_vtemp.mp4")
             self.queue.put({"action": "finish", "index": index, "filename": file_name})
-
-            video.close()
 
         self.queue.put({"action": "finish_all", "total": len(lines)})
 
@@ -482,7 +482,7 @@ class DragDropApp():
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO,
-                        filename='log',
+                        filename='log.txt',
                         filemode='w',
                         format='%(asctime)s - %(levelname)s - %(message)s')
     root = Tk()
