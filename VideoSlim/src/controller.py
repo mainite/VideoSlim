@@ -16,7 +16,7 @@ class Controller:
 
         self._read_config()
 
-        threading.Thread(target=check_for_updates(self.queue, self.meta_info["VERSION"]), daemon=True).start()
+        threading.Thread(target=check_for_updates, args=(self.queue, self.meta_info["VERSION"]), daemon=True).start()
 
     def _read_config(self):
         """Read configuration from file or create default configuration"""
