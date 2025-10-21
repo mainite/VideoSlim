@@ -1,6 +1,7 @@
+import logging
 from typing import Dict, Any
 
-from tools import clamp
+from .tools import clamp
 
 
 def get_default_configs():
@@ -67,6 +68,7 @@ class _X264Config:
         初始化X264Config对象，从配置字典中获取参数，并设置默认值。
         :param config_dict:
         """
+        logging.debug(f"初始化X264Config，输入配置: {config_dict}")
         fixed_config_dict = _get_default_x264_config()
         fixed_config_dict.update(config_dict)
 
@@ -77,6 +79,7 @@ class _X264Config:
         self.I = fixed_config_dict["I"]
         self.r = fixed_config_dict["r"]
         self.b = fixed_config_dict["b"]
+        logging.debug(f"X264Config初始化完成: crf={self.crf}, preset={self.preset}, opencl={self.opencl_acceleration}")
 
     @property
     def crf(self) -> float:
@@ -115,10 +118,11 @@ class Config:
         Args:
             config_dict: Dictionary containing configuration parameters
         """
-
+        logging.debug(f"初始化Config，输入配置: {config_dict}")
         fixed_config_dict = get_default_config()
         fixed_config_dict.update(config_dict)
 
         self.name = fixed_config_dict.get("name", "default")
+        logging.debug(f"配置名称设置为: {self.name}")
 
         self.X264 = _X264Config(fixed_config_dict["x264"])
