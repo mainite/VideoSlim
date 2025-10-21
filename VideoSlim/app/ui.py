@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-VideoSlim - A video compression application using x264
-Author: hotMonk (inite.cn)
-Refactored version: v1.8
-"""
-
 import os
 import json
 import logging
@@ -13,7 +5,7 @@ import threading
 import subprocess
 import webbrowser
 from queue import Queue
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 import tkinter as tk
 from tkinter import messagebox, StringVar, BooleanVar, END, TOP, W, NE
@@ -22,29 +14,19 @@ import windnd
 import requests
 from pymediainfo import MediaInfo
 
-from app.config import Config
-from app import *
-
-# Constants
-VERSION = 'v1.8'
-VIDEO_EXTENSIONS = [".mp4", ".mkv", ".mov", ".avi"]
-CONFIG_FILE = "config.json"
-DEFAULT_CONFIG = config.get_default_configs()
-TEMP_FILES = ["./pre_temp.mp4", "./old_atemp.wav", "./old_atemp.mp4", "./old_vtemp.mp4"]
-
 
 class VideoSlimApp:
     """Main application class for VideoSlim"""
 
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, meta_info: dict[str, Any]):
         """
         Initialize VideoSlim application
-        
+
         Args:
             root: Tkinter root window
         """
         self.root = root
-        self.version = VERSION
+        self.version = meta_info["VERSION"]
         self.queue = Queue()
         self.configs_name_list = []
         self.configs_dict = {}
@@ -136,7 +118,7 @@ class VideoSlimApp:
     def _on_drop_files(self, file_paths):
         """
         Handle files dropped into application
-        
+
         Args:
             file_paths: List of file paths dropped
         """
@@ -272,7 +254,7 @@ class VideoSlimApp:
                             file_paths: List[str], recurse: bool):
         """
         Worker thread for compressing videos
-        
+
         Args:
             config: Compression configuration
             delete_audio: Whether to delete audio tracks
@@ -324,7 +306,7 @@ class VideoSlimApp:
                              delete_source: bool, index: int, total: int):
         """
         Process a single video file
-        
+
         Args:
             file_path: Path to video file
             config: Compression configuration
@@ -417,11 +399,11 @@ class VideoSlimApp:
     def _scan_directory(directory: str, extensions: List[str]) -> Tuple[List[str], List[str]]:
         """
         Recursively scan directory for files with specific extensions
-        
+
         Args:
             directory: Directory to scan
             extensions: List of file extensions to include
-            
+
         Returns:
             Tuple of (subfolders, files)
         """
@@ -445,10 +427,10 @@ class VideoSlimApp:
     def _get_output_filename(input_path: str) -> str:
         """
         Generate output filename for compressed video
-        
+
         Args:
             input_path: Input video file path
-            
+
         Returns:
             Output file path
         """
@@ -469,35 +451,12 @@ class VideoSlimApp:
     def _is_video_file(file_path: str) -> bool:
         """
         Check if file is a supported video file
-        
+
         Args:
             file_path: File path to check
-            
+
         Returns:
             True if file is a supported video
         """
         _, ext = os.path.splitext(file_path)
         return ext.lower() in VIDEO_EXTENSIONS
-
-
-def setup_logging():
-    """Configure application logging"""
-    logging.basicConfig(
-        level=logging.INFO,
-        filename='log.txt',
-        filemode='w',
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-
-
-def main():
-    """Application entry point"""
-    setup_logging()
-
-    root = tk.Tk()
-    app = VideoSlimApp(root)
-    root.mainloop()
-
-
-if __name__ == '__main__':
-    main()
