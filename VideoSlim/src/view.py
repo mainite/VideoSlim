@@ -7,7 +7,6 @@ import tkinter as tk
 from tkinter import messagebox, StringVar, BooleanVar, END, TOP, W, NE
 import tkinter.ttk as ttk
 import windnd
-from nuitka.nodes.NodeMakingHelpers import makeRaiseTypeErrorExceptionReplacementFromTemplateAndValue
 
 from .message import *
 from .controller import Controller
