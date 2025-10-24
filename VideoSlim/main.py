@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 VideoSlim - A video compression application using x264
-Author: hotMonk (inite.cn)
 Refactored version: v1.8
 """
 

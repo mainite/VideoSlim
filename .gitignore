@@ -3,3 +3,5 @@ VideoSlim/log.txt
 VideoSlim/old_atemp.mp4
 VideoSlim/old_atemp.wav
 VideoSlim/old_vtemp.mp4
+/.idea
+/VideoSlim/src/__pycache__

@@ -36,7 +36,7 @@ class View:
     def _setup_ui(self):
         """Set up the application's user interface"""
         # Configure root window
-        self.root.title(f"VideoSlim 视频压缩 {self.controller.meta_info["VERSION"]}")
+        self.root.title(f"VideoSlim 视频压缩 {self.controller.meta_info['VERSION']}")
         self.root.resizable(width=False, height=False)
 
         # Set icon if available
