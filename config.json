@@ -21,7 +21,9 @@
                 "r": 4,
                 "b": 3,
                 "opencl_acceleration": true,
-                "hwaccel": "auto"
+                "hwaccel": "auto",
+                "encoder": "h264_nvenc",
+                "fallback_to_cpu": true
             }
         }
     ]

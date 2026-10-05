@@ -24,6 +24,14 @@ type HWAccel = Literal[
     "vaapi",
 ]
 
+type Encoder = Literal[
+    "libx264",
+    "h264_nvenc",
+    "h264_qsv",
+    "h264_amf",
+    "h264_mf",
+]
+
 
 class X264ConfigModel(BaseModel):
     """
@@ -53,6 +61,17 @@ class X264ConfigModel(BaseModel):
             "auto/d3d11va/dxva2/cuda/qsv/vaapi 等值会以 -hwaccel <值> 传入，"
             "解码失败时 ffmpeg 会自动回退到软件解码"
         ),
+    )
+    encoder: Encoder = Field(
+        default="libx264",
+        description=(
+            "视频编码器。libx264 为软件编码；"
+            "h264_nvenc/h264_qsv/h264_amf/h264_mf 为硬件编码器，可真正使用 GPU 加速"
+        ),
+    )
+    fallback_to_cpu: bool = Field(
+        default=True,
+        description="当指定的硬件编码器不可用时，是否自动回退到 libx264 软件编码",
     )
 
 

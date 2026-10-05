@@ -34,6 +34,7 @@ class VideoService:
 
     # 缓存的编码器能力探测结果：None 表示尚未探测
     _opencl_supported: Optional[bool] = None
+    _encoder_supported: dict[str, bool] = {}
 
     def __init__(self) -> None:
         if self._instance is not None:
@@ -91,6 +92,182 @@ class VideoService:
 
         VideoService._opencl_supported = supported
         return supported
+
+    @staticmethod
+    def _is_encoder_supported(encoder: str) -> bool:
+        """
+        探测指定的硬件编码器在当前机器上是否真正可用
+
+        仅检查 ffmpeg 是否编译了该编码器是不够的，还需确认驱动/硬件是否就绪，因此
+        这里实际编码一帧黑帧进行验证。结果会被缓存，避免重复探测。
+
+        Args:
+            encoder: 编码器名称，如 h264_nvenc
+
+        Returns:
+            bool: 可用时返回 True，否则返回 False
+        """
+        if encoder in VideoService._encoder_supported:
+            return VideoService._encoder_supported[encoder]
+
+        supported = False
+        try:
+            result = subprocess.run(
+                [
+                    meta.FFMPEG_PATH,
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "nullsrc=s=256x144:d=0.2",
+                    "-c:v",
+                    encoder,
+                    "-f",
+                    "null",
+                    "-",
+                ],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            supported = result.returncode == 0
+            if not supported:
+                logging.info(
+                    f"硬件编码器 {encoder} 不可用: {(result.stdout or '').strip()[:200]}"
+                )
+        except Exception as e:
+            logging.warning(f"探测硬件编码器 {encoder} 失败: {e}")
+
+        VideoService._encoder_supported[encoder] = supported
+        return supported
+
+    @staticmethod
+    def _resolve_encoder(config: ConfigModel) -> str:
+        """
+        解析最终使用的视频编码器
+
+        若配置选择了硬件编码器但当前不可用，则根据 fallback_to_cpu 决定是否回退到
+        libx264 软件编码，避免因硬件/驱动缺失导致压缩任务失败。
+
+        Args:
+            config: 视频压缩配置对象
+
+        Returns:
+            str: 实际使用的编码器名称
+        """
+        encoder = config.x264.encoder
+        if encoder == "libx264":
+            return "libx264"
+
+        if VideoService._is_encoder_supported(encoder):
+            return encoder
+
+        if config.x264.fallback_to_cpu:
+            logging.warning(f"硬件编码器 {encoder} 不可用，已回退到 libx264 软件编码")
+            return "libx264"
+
+        logging.error(f"硬件编码器 {encoder} 不可用，且未启用回退")
+        return encoder
+
+    @staticmethod
+    def _build_video_args(config: ConfigModel, encoder: str) -> list[str]:
+        """
+        根据编码器构建视频编码参数
+
+        libx264 使用 crf/preset 等原有参数；硬件编码器使用各自对应的恒定质量参数，
+        并保留关键帧间隔、B 帧等通用设置。
+
+        Args:
+            config: 视频压缩配置对象
+            encoder: 实际使用的编码器名称
+
+        Returns:
+            list[str]: 视频编码参数列表
+        """
+        x264 = config.x264
+        if encoder == "libx264":
+            return [
+                "-c:v",
+                "libx264",
+                "-crf",
+                str(x264.crf),
+                "-preset",
+                x264.preset,
+                "-keyint_min",
+                str(x264.I),
+                "-g",
+                str(x264.I),
+                "-refs",
+                str(x264.r),
+                "-bf",
+                str(x264.b),
+                "-me_method",
+                "umh",
+                "-sc_threshold",
+                "60",
+                "-b_strategy",
+                "1",
+                "-qcomp",
+                "0.5",
+                "-psy-rd",
+                "0.3:0",
+                "-aq-mode",
+                "2",
+                "-aq-strength",
+                "0.8",
+                *VideoService._build_opencl_args(config),
+            ]
+
+        args = ["-c:v", encoder]
+        # 关键帧间隔 / B 帧为多数硬件编码器通用的参数
+        args += ["-g", str(x264.I), "-bf", str(x264.b)]
+
+        match encoder:
+            case "h264_nvenc":
+                # NVIDIA，-b:v 0 表示纯恒定质量模式
+                args += [
+                    "-preset",
+                    "p4",
+                    "-tune",
+                    "hq",
+                    "-rc",
+                    "vbr",
+                    "-cq",
+                    str(int(round(x264.crf))),
+                    "-b:v",
+                    "0",
+                    "-rc-lookahead",
+                    "32",
+                ]
+            case "h264_qsv":
+                args += [
+                    "-global_quality",
+                    str(int(round(x264.crf))),
+                    "-look_ahead",
+                    "1",
+                ]
+            case "h264_amf":
+                args += [
+                    "-rc",
+                    "cqp",
+                    "-qp_i",
+                    str(int(round(x264.crf))),
+                    "-qp_p",
+                    str(int(round(x264.crf))),
+                    "-qp_b",
+                    str(int(round(x264.crf))),
+                    "-quality",
+                    "quality",
+                ]
+            case "h264_mf":
+                args += ["-rate_control", "quality", "-quality", "90"]
+
+        return args
 
     @staticmethod
     def _build_hwaccel_args(config: ConfigModel) -> list[str]:
@@ -166,48 +343,18 @@ class VideoService:
 
         ffmpeg_path = meta.FFMPEG_PATH
 
-        # Get preset string
-        preset = config.x264.preset
         input_file = file.file_path
 
         # 硬件解码参数（输入选项，必须位于 -i 之前）
         hwaccel_args = VideoService._build_hwaccel_args(config)
-        # OpenCL 编码加速参数（编码器选项，位于 -i 之后、输出之前）
-        opencl_args = VideoService._build_opencl_args(config)
+
+        # 解析实际使用的编码器（硬件不可用时按配置回退到 libx264）
+        encoder = VideoService._resolve_encoder(config)
+        logging.info(f"使用视频编码器: {encoder}")
 
         # 统一的输入前缀与编码参数，供有/无音频两个分支复用
         input_args = [ffmpeg_path, "-y", *hwaccel_args, "-i", input_file]
-        video_args = [
-            "-c:v",
-            "libx264",
-            "-crf",
-            str(config.x264.crf),
-            "-preset",
-            preset,
-            "-keyint_min",
-            str(config.x264.I),
-            "-g",
-            str(config.x264.I),
-            "-refs",
-            str(config.x264.r),
-            "-bf",
-            str(config.x264.b),
-            "-me_method",
-            "umh",
-            "-sc_threshold",
-            "60",
-            "-b_strategy",
-            "1",
-            "-qcomp",
-            "0.5",
-            "-psy-rd",
-            "0.3:0",
-            "-aq-mode",
-            "2",
-            "-aq-strength",
-            "0.8",
-            *opencl_args,
-        ]
+        video_args = VideoService._build_video_args(config, encoder)
 
         if not delete_audio:
             # Process with audio
