@@ -5,6 +5,7 @@ import time
 from typing import Optional
 
 from src import meta
+from src.model.config import ConfigModel
 from src.model.message import (
     CompressionCurrentProgressMessage,
     CompressionErrorMessage,
@@ -31,6 +32,9 @@ class VideoService:
 
     running_process: list[subprocess.Popen] = []
 
+    # 缓存的编码器能力探测结果：None 表示尚未探测
+    _opencl_supported: Optional[bool] = None
+
     def __init__(self) -> None:
         if self._instance is not None:
             raise ValueError("VideoService 是单例类，不能重复实例化")
@@ -49,6 +53,82 @@ class VideoService:
             VideoService._instance = VideoService()
 
         return VideoService._instance
+
+    @staticmethod
+    def _is_opencl_supported() -> bool:
+        """
+        探测当前 ffmpeg 是否支持 libx264 的 OpenCL lookahead 加速
+
+        该探测只会在首次调用时执行一次，结果会被缓存。若当前 ffmpeg 构建不包含
+        OpenCL 支持，则返回 False，调用方应跳过 -opencl 参数以保证压缩正常进行。
+
+        Returns:
+            bool: 支持 OpenCL 时返回 True，否则返回 False
+        """
+        if VideoService._opencl_supported is not None:
+            return VideoService._opencl_supported
+
+        supported = False
+        try:
+            result = subprocess.run(
+                [meta.FFMPEG_PATH, "-hide_banner", "-h", "encoder=libx264"],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            supported = "opencl" in result.stdout.lower()
+        except Exception as e:
+            logging.warning(f"探测 OpenCL 支持失败: {e}")
+
+        if not supported:
+            logging.warning(
+                "当前 ffmpeg 未编译 OpenCL 支持，opencl_acceleration 已自动忽略，"
+                "将使用软件编码。如需 OpenCL 加速请更换带 OpenCL 的 ffmpeg 构建。"
+            )
+
+        VideoService._opencl_supported = supported
+        return supported
+
+    @staticmethod
+    def _build_hwaccel_args(config: ConfigModel) -> list[str]:
+        """
+        构建硬件解码参数
+
+        -hwaccel 是输入选项，必须位于 -i 之前。使用 ffmpeg 的软回退机制：当指定
+        的硬件解码器不可用或解码失败时，会自动回退到软件解码，而不会导致整体失败。
+
+        Args:
+            config: 视频压缩配置对象
+
+        Returns:
+            list[str]: 需要追加到 -i 之前的参数列表，未启用时返回空列表
+        """
+        if config.x264.hwaccel == "none":
+            return []
+        return ["-hwaccel", config.x264.hwaccel]
+
+    @staticmethod
+    def _build_opencl_args(config: ConfigModel) -> list[str]:
+        """
+        构建 OpenCL 加速参数
+
+        -opencl 是 libx264 的编码器选项，位于 -i 之后、输出文件之前。仅当配置开启
+        且当前 ffmpeg 确实支持时才追加，避免因不支持的构建导致整个压缩任务失败。
+
+        Args:
+            config: 视频压缩配置对象
+
+        Returns:
+            list[str]: 需要追加到编码参数中的参数列表，未启用或不可用时返回空列表
+        """
+        if not config.x264.opencl_acceleration:
+            return []
+        if not VideoService._is_opencl_supported():
+            return []
+        return ["-opencl"]
 
     @timer
     @staticmethod
@@ -90,39 +170,79 @@ class VideoService:
         preset = config.x264.preset
         input_file = file.file_path
 
+        # 硬件解码参数（输入选项，必须位于 -i 之前）
+        hwaccel_args = VideoService._build_hwaccel_args(config)
+        # OpenCL 编码加速参数（编码器选项，位于 -i 之后、输出之前）
+        opencl_args = VideoService._build_opencl_args(config)
+
+        # 统一的输入前缀与编码参数，供有/无音频两个分支复用
+        input_args = [ffmpeg_path, "-y", *hwaccel_args, "-i", input_file]
+        video_args = [
+            "-c:v",
+            "libx264",
+            "-crf",
+            str(config.x264.crf),
+            "-preset",
+            preset,
+            "-keyint_min",
+            str(config.x264.I),
+            "-g",
+            str(config.x264.I),
+            "-refs",
+            str(config.x264.r),
+            "-bf",
+            str(config.x264.b),
+            "-me_method",
+            "umh",
+            "-sc_threshold",
+            "60",
+            "-b_strategy",
+            "1",
+            "-qcomp",
+            "0.5",
+            "-psy-rd",
+            "0.3:0",
+            "-aq-mode",
+            "2",
+            "-aq-strength",
+            "0.8",
+            *opencl_args,
+        ]
+
         if not delete_audio:
-            # Process with audio using single ffmpeg command
-            commands.append(
-                f'"{ffmpeg_path}" -y -i "{input_file}" '
-                + f"-c:v libx264 -crf {config.x264.crf} -preset {preset} "
-                + f"-keyint_min {config.x264.I} -g {config.x264.I} "
-                + f"-refs {config.x264.r} -bf {config.x264.b} "
-                + "-me_method umh -sc_threshold 60 -b_strategy 1 -qcomp 0.5 -psy-rd 0.3:0 "
-                + "-aq-mode 2 -aq-strength 0.8 "
-                + "-c:a aac -b:a 128k "
-                + "-movflags faststart "
-                + ("-hwaccel auto " if config.x264.opencl_acceleration else "")
-                + f'-map 0: "{output_path}"'
-            )
+            # Process with audio
+            command = [
+                *input_args,
+                *video_args,
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+                "-movflags",
+                "faststart",
+                "-map",
+                "0:",
+                output_path,
+            ]
         else:
-            # Process without audio using single ffmpeg command
-            commands.append(
-                f'"{ffmpeg_path}" -y -i "{input_file}" '
-                + f"-c:v libx264 -crf {config.x264.crf} -preset {preset} "
-                + f"-keyint_min {config.x264.I} -g {config.x264.I} "
-                + f"-refs {config.x264.r} -bf {config.x264.b} "
-                + "-me_method umh -sc_threshold 60 -b_strategy 1 -qcomp 0.5 -psy-rd 0.3:0 "
-                + "-aq-mode 2 -aq-strength 0.8 "
-                + "-an "
-                + "-movflags faststart "
-                + ("-hwaccel auto " if config.x264.opencl_acceleration else "")
-                + f'-map 0: "{output_path}"'
-            )
+            # Process without audio
+            command = [
+                *input_args,
+                *video_args,
+                "-an",
+                "-movflags",
+                "faststart",
+                "-map",
+                "0:",
+                output_path,
+            ]
+
+        commands.append(command)
 
         # Execute commands
         # total_commands = len(commands)
         for index, command in enumerate(commands):
-            logging.info(f"执行命令: {command}")
+            logging.info(f"执行命令: {subprocess.list2cmdline(command)}")
 
             # 使用Popen创建子进程并添加到running_process列表
             process = subprocess.Popen(

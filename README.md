@@ -76,7 +76,8 @@
 | **I**                   | 正整数         | 600    | 关键帧间隔（GOP），控制视频的时间结构                                                                                  |
 | **r**                   | 正整数         | 4      | 参考帧数量，影响压缩效率和编码速度                                                                                     |
 | **b**                   | 正整数         | 3      | B 帧数量，提升压缩效率但增加编码复杂度                                                                                 |
-| **opencl_acceleration** | true/false     | false  | 是否开启 OpenCL GPU 加速<br>开启后可大幅提升编码速度（需硬件支持）                                                     |
+| **opencl_acceleration** | true/false     | false  | 是否开启 x264 的 OpenCL lookahead 加速<br>需 ffmpeg 构建支持 OpenCL，不支持时会自动忽略并回退到软件编码                                   |
+| **hwaccel**             | none/auto/d3d11va/dxva2/cuda/qsv/vaapi | none | 硬件解码方式，作用于输入文件<br>`none` 表示不启用；解码不可用时 ffmpeg 自动回退到软件解码 |
 
 #### 配置建议
 - **日常使用**: 推荐使用 "default" 配置（crf=23.5, preset=medium）
@@ -199,7 +200,8 @@ VideoSlim/
 3. **视频编码压缩**
    - 核心使用 FFmpeg 的 libx264 编码器
    - 根据配置参数（crf、preset、参考帧等）进行高质量压缩
-   - 支持 OpenCL GPU 加速，提升编码效率
+   - 可选启用硬件解码（`hwaccel`）与 x264 OpenCL lookahead 加速（`opencl_acceleration`）；
+     当 ffmpeg 构建或硬件不支持时会自动跳过加速参数并回退到软件编码，不会导致压缩失败
 
 4. **音频处理**
    - 根据用户选择保留或删除音频轨道
@@ -227,6 +229,9 @@ VideoSlim/
 - **编码失败**: 查看 `log.txt` 获取具体错误信息
 - **质量不满意**: 调整 `crf` 参数（值越小质量越高）
 - **编码过慢**: 提高 `preset` 参数值（如从 slow 改为 medium 或 fast）
+- **开启 `opencl_acceleration` 后没有加速**: 说明当前 `tools/ffmpeg.exe` 未编译 OpenCL 支持，
+  程序已自动回退到软件编码（可查看 `log.txt` 中的警告）。如需真正的硬件加速，请更换带
+  OpenCL 或硬件编码器（如 NVENC、QSV）的 ffmpeg 构建。
 
 ## 许可证
 本项目采用开源许可证，详见 `LICENSE` 文件。

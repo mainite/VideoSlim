@@ -14,6 +14,16 @@ type X264Preset = Literal[
     "veryslow",
 ]
 
+type HWAccel = Literal[
+    "none",
+    "auto",
+    "d3d11va",
+    "dxva2",
+    "cuda",
+    "qsv",
+    "vaapi",
+]
+
 
 class X264ConfigModel(BaseModel):
     """
@@ -33,7 +43,16 @@ class X264ConfigModel(BaseModel):
     r: int = Field(default=4, description="B帧参考数，影响视频质量和编码速度")
     b: int = Field(default=3, description="B帧数量，影响视频质量和压缩率")
     opencl_acceleration: bool = Field(
-        default=False, description="是否启用OpenCL硬件加速"
+        default=False,
+        description="是否启用 x264 的 OpenCL lookahead 加速（需 ffmpeg 构建支持 OpenCL）",
+    )
+    hwaccel: HWAccel = Field(
+        default="none",
+        description=(
+            "硬件解码方式，作用于输入文件。none 表示不启用硬件解码；"
+            "auto/d3d11va/dxva2/cuda/qsv/vaapi 等值会以 -hwaccel <值> 传入，"
+            "解码失败时 ffmpeg 会自动回退到软件解码"
+        ),
     )
 
 

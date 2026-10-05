@@ -4,11 +4,24 @@
             "name": "default",
             "x264": {
                 "crf": 23.5,
-                "preset": "veryslow",
+                "preset": "slower",
                 "I": 600,
                 "r": 4,
                 "b": 3,
-                "opencl_acceleration": false
+                "opencl_acceleration": false,
+                "hwaccel": "auto"
+            }
+        },
+        {
+            "name": "fast",
+            "x264": {
+                "crf": 26,
+                "preset": "fast",
+                "I": 600,
+                "r": 4,
+                "b": 3,
+                "opencl_acceleration": true,
+                "hwaccel": "auto"
             }
         }
     ]
