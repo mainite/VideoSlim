@@ -11,6 +11,7 @@ from src.model.message import (
     CompressionErrorMessage,
     CompressionFinishedMessage,
     CompressionStartMessage,
+    CompressionStoppedMessage,
     CompressionTotalProgressMessage,
 )
 from src.model.video import Task, VideoFile, is_progress_line, resolve_time_str
@@ -461,7 +462,10 @@ class VideoService:
 
         # Check return code
         if process.returncode != 0:
-            logging.error(f"命令执行失败，退出码: {process.returncode}")
+            if VideoService._stopping:
+                logging.info(f"命令已被终止，退出码: {process.returncode}")
+            else:
+                logging.error(f"命令执行失败，退出码: {process.returncode}")
             raise subprocess.CalledProcessError(process.returncode, command)
 
     @timer
@@ -573,6 +577,11 @@ class VideoService:
 
         # Process each file
         for index, video_file in enumerate(task.video_sequence, 1):
+            if VideoService._stopping:
+                # 已被请求终止：不再处理后续文件，避免关闭程序后仍有 ffmpeg 在压缩
+                logging.info("检测到终止请求，不再处理后续文件")
+                break
+
             logging.debug(
                 f"process file: {video_file.file_path}, index: {index}, total: {task.files_num}"
             )
@@ -595,6 +604,10 @@ class VideoService:
                     delete_source=task.info.delete_source,
                 )
             except Exception as e:
+                if VideoService._stopping:
+                    # 因终止而中断：属于预期行为，不作为错误上报
+                    logging.info(f"文件 {video_file.file_path} 的处理已终止")
+                    break
                 logging.error(f"处理文件 {video_file.file_path} 失败: {e}")
                 message_service.send_message(
                     CompressionErrorMessage(
@@ -603,6 +616,12 @@ class VideoService:
                 )
             finally:
                 VideoService.clean_temp_files()
+
+        if VideoService._stopping:
+            # 任务被终止：通知界面恢复可用状态，而不是提示"转换结束"
+            logging.info("压缩任务已被终止")
+            message_service.send_message(CompressionStoppedMessage())
+            return
 
         # Signal completion
         message_service.send_message(
