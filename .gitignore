@@ -1,5 +1,5 @@
 .idea/
-log.txt
+log/
 store
 /output/
 /.idea

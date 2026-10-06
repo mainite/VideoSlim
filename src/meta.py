@@ -19,6 +19,9 @@ CONFIG_FILE_PATH = "config.json"
 # 存储文件路径
 STORE_PATH = "store"
 
+# 日志文件夹路径
+LOG_DIR = "log"
+
 # 临时文件路径列表
 TEMP_FILES = ["./pre_temp.mp4"]
 
