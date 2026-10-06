@@ -36,6 +36,9 @@ class VideoService:
     _opencl_supported: Optional[bool] = None
     _encoder_supported: dict[str, bool] = {}
 
+    # encoder="auto" 时的探测优先级（均为厂商硬件编码器）
+    _ENCODER_PRIORITY: list[str] = ["h264_nvenc", "h264_qsv", "h264_amf"]
+
     # 是否正在停止处理：停止时不再重试，避免停机过程中重新启动 ffmpeg
     _stopping: bool = False
 
@@ -150,12 +153,32 @@ class VideoService:
         return supported
 
     @staticmethod
+    def _select_auto_encoder() -> str:
+        """
+        自动选择可用的硬件编码器
+
+        按 _ENCODER_PRIORITY 顺序探测，返回首个真正可用的硬件编码器；
+        若均不可用则回退到 libx264 软件编码。
+
+        Returns:
+            str: 选中的编码器名称
+        """
+        for candidate in VideoService._ENCODER_PRIORITY:
+            if VideoService._is_encoder_supported(candidate):
+                logging.info(f"自动选择硬件编码器: {candidate}")
+                return candidate
+
+        logging.warning("未检测到可用的硬件编码器，已回退到 libx264 软件编码")
+        return "libx264"
+
+    @staticmethod
     def _resolve_encoder(config: ConfigModel) -> str:
         """
         解析最终使用的视频编码器
 
-        若配置选择了硬件编码器但当前不可用，则根据 fallback_to_cpu 决定是否回退到
-        libx264 软件编码，避免因硬件/驱动缺失导致压缩任务失败。
+        - encoder 为 "auto" 时自动选择可用的硬件编码器（见 _select_auto_encoder）
+        - 若配置选择了硬件编码器但其不可用，则根据 fallback_to_cpu 决定是否回退到
+          libx264 软件编码，避免因硬件/驱动缺失导致压缩任务失败
 
         Args:
             config: 视频压缩配置对象
@@ -164,6 +187,10 @@ class VideoService:
             str: 实际使用的编码器名称
         """
         encoder = config.x264.encoder
+
+        if encoder == "auto":
+            return VideoService._select_auto_encoder()
+
         if encoder == "libx264":
             return "libx264"
 

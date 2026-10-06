@@ -25,6 +25,7 @@ type HWAccel = Literal[
 ]
 
 type Encoder = Literal[
+    "auto",
     "libx264",
     "h264_nvenc",
     "h264_qsv",
@@ -63,10 +64,11 @@ class X264ConfigModel(BaseModel):
         ),
     )
     encoder: Encoder = Field(
-        default="libx264",
+        default="auto",
         description=(
-            "视频编码器。libx264 为软件编码；"
-            "h264_nvenc/h264_qsv/h264_amf/h264_mf 为硬件编码器，可真正使用 GPU 加速"
+            "视频编码器。auto 会按 h264_nvenc/h264_qsv/h264_amf 顺序自动选择可用的"
+            "硬件编码器，均不可用时回退到 libx264；libx264 为软件编码；"
+            "h264_nvenc/h264_qsv/h264_amf/h264_mf 为硬件编码器"
         ),
     )
     fallback_to_cpu: bool = Field(
@@ -118,16 +120,16 @@ def _default_configs() -> list[ConfigModel]:
     """
     生成程序首次启动时写入的默认配置列表
 
-    包含一个通用的 default 软件编码配置，以及分别适配 NVIDIA、AMD、Intel
-    显卡硬件编码的三套快速配置（硬件不可用时自动回退到软件编码）。
+    包含一个自动选择硬件编码器的 default 配置（均不可用时回退软件编码），
+    以及分别强制使用 NVIDIA、AMD、Intel 硬件编码的三套快速配置。
 
     Returns:
         list[ConfigModel]: 默认配置列表
     """
     return [
-        # 默认配置，适用于大多数场景
+        # 默认配置：自动选择可用的硬件编码器，适用于大多数场景
         ConfigModel(),
-        # 分别使用 NVIDIA / AMD / Intel 硬件编码的快速配置
+        # 分别强制使用 NVIDIA / AMD / Intel 硬件编码的快速配置
         _fast_config("fast_nvidia", "h264_nvenc"),
         _fast_config("fast_amd", "h264_amf"),
         _fast_config("fast_intel", "h264_qsv"),

@@ -9,7 +9,9 @@
                 "r": 4,
                 "b": 3,
                 "opencl_acceleration": false,
-                "hwaccel": "auto"
+                "hwaccel": "auto",
+                "encoder": "auto",
+                "fallback_to_cpu": true
             }
         },
         {

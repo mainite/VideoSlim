@@ -28,7 +28,7 @@
 - **一键压缩**: 拖拽文件/文件夹到窗口，选择配置即可开始压缩
 - **智能处理**: 自动修正视频旋转元数据，优化输出质量
 - **字幕保留**: 压缩后保留原视频的字幕轨道（直接复制，不重新编码）
-- **多配置方案**: 内置一套软件编码配置（`default`）与三套硬件编码配置（`fast_nvidia`、`fast_amd`、`fast_intel`），支持自定义扩展
+- **多配置方案**: 内置自动选择硬件编码器的 `default` 配置与三套指定厂商的硬件编码配置（`fast_nvidia`、`fast_amd`、`fast_intel`），支持自定义扩展
 - **批量处理**: 支持递归扫描子文件夹，批量处理多个视频文件
 - **高级选项**:
   - 可选择删除音频轨道以进一步减小文件体积
@@ -41,9 +41,10 @@
 
 测试环境：R7-5800H；Windows10系统；16G ddr4内存；RTX3060Laptop。
 
-使用fast_nvidia配置压缩时长为5分钟的4k视频，用时约1分30秒，CPU平均占用为10%，GPU平均占用为50%。
+使用fast_nvidia配置压缩时长为5分钟的4k视频，用时约1分30秒，CPU平均占用为10%，GPU视频编码核心满载，视频解码核心平均占用为50%，3D核心平均占用为70%。GPU温度为55℃左右，笔记本风扇噪音不高，可以连续进行大量视频压缩工作。
 
-default配置中默认使用软件编码，效率低且CPU负载极高，所以如果你的电脑支持硬件加速，请选用对应配置。
+default配置会自动探测并使用当前机器上可用的硬件编码器（`h264_nvenc` → `h264_qsv` → `h264_amf`），
+均不可用时回退到 `libx264` 软件编码；因此同一份默认配置在不同主机上都能自动获得硬件加速。
 
 <img src="./img/test1.png" width="820" style="display:block;margin:auto;" />
 
@@ -82,26 +83,26 @@ default配置中默认使用软件编码，效率低且CPU负载极高，所以�
 
 #### 视频编码参数
 
-| 参数名                  | 取值范围                                     | 默认值  | 说明                                                                                                                                         |
-| ----------------------- | -------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **crf**                 | 0–51                                         | 23.5    | 质量控制参数，值越小质量越高（体积越大）<br>推荐范围：18–28                                                                                  |
-| **preset**              | 编码预设字符串                               | slower  | 编码速度/压缩效率平衡<br>可选值：ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow                                |
-| **I**                   | 正整数                                       | 600     | 关键帧间隔（GOP），控制视频的时间结构                                                                                                        |
-| **r**                   | 正整数                                       | 4       | 参考帧数量，影响压缩效率和编码速度                                                                                                           |
-| **b**                   | 正整数                                       | 3       | B 帧数量，提升压缩效率但增加编码复杂度                                                                                                       |
-| **opencl_acceleration** | true/false                                   | false   | 是否开启 x264 的 OpenCL lookahead 加速<br>需 ffmpeg 构建支持 OpenCL，不支持时自动忽略并回退到软件编码（本项目自带 ffmpeg **未编译 OpenCL**） |
-| **hwaccel**             | none/auto/d3d11va/dxva2/cuda/qsv/vaapi       | auto    | 硬件解码方式，作用于输入文件<br>`none` 表示不启用；解码不可用时 ffmpeg 自动回退到软件解码                                                    |
-| **encoder**             | libx264/h264_nvenc/h264_qsv/h264_amf/h264_mf | libx264 | 视频编码器<br>`libx264` 为软件编码；其余为硬件编码器，**可真正使用 GPU 加速**（如 NVIDIA 用 `h264_nvenc`）                                   |
-| **fallback_to_cpu**     | true/false                                   | true    | 当指定的硬件编码器不可用时，是否自动回退到 `libx264` 软件编码                                                                                |
+| 参数名                  | 取值范围                                          | 默认值 | 说明                                                                                                                                                                                                                        |
+| ----------------------- | ------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **crf**                 | 0–51                                              | 23.5   | 质量控制参数，值越小质量越高（体积越大）<br>推荐范围：18–28                                                                                                                                                                 |
+| **preset**              | 编码预设字符串                                    | slower | 编码速度/压缩效率平衡<br>可选值：ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow                                                                                                               |
+| **I**                   | 正整数                                            | 600    | 关键帧间隔（GOP），控制视频的时间结构                                                                                                                                                                                       |
+| **r**                   | 正整数                                            | 4      | 参考帧数量，影响压缩效率和编码速度                                                                                                                                                                                          |
+| **b**                   | 正整数                                            | 3      | B 帧数量，提升压缩效率但增加编码复杂度                                                                                                                                                                                      |
+| **opencl_acceleration** | true/false                                        | false  | 是否开启 x264 的 OpenCL lookahead 加速<br>需 ffmpeg 构建支持 OpenCL，不支持时自动忽略并回退到软件编码（本项目自带 ffmpeg **未编译 OpenCL**）                                                                                |
+| **hwaccel**             | none/auto/d3d11va/dxva2/cuda/qsv/vaapi            | auto   | 硬件解码方式，作用于输入文件<br>`none` 表示不启用；解码不可用时 ffmpeg 自动回退到软件解码                                                                                                                                   |
+| **encoder**             | auto/libx264/h264_nvenc/h264_qsv/h264_amf/h264_mf | auto   | 视频编码器<br>`auto` 会按 `h264_nvenc` → `h264_qsv` → `h264_amf` 顺序自动选择**可用的硬件编码器**，均不可用时回退 `libx264`；`libx264` 为软件编码<br>`h264_mf` 依赖系统 MFT，可能落到微软软件编码器，不建议作为通用加速方案 |
+| **fallback_to_cpu**     | true/false                                        | true   | 当指定的硬件编码器不可用时，是否自动回退到 `libx264` 软件编码                                                                                                                                                               |
 
 #### 配置建议
-- **日常使用**: 推荐使用 "default" 配置（crf=23.5, preset=slower），画质与体积平衡，软件编码
-- **快速处理**: 根据显卡选择硬件编码配置（crf=26, preset=fast），适合大量视频的快速压缩：
-  - `fast_nvidia`：NVIDIA 显卡（NVENC）
-  - `fast_amd`：AMD 显卡（AMF）
-  - `fast_intel`：Intel 核显（Quick Sync）
+- **日常使用**: 推荐使用 "default" 配置（crf=23.5, preset=slower），会自动使用可用的硬件编码器；若机器无可用硬件编码器则回退软件编码
+- **快速处理**: 也可根据显卡显式指定硬件编码配置（crf=26, preset=fast），适合大量视频的快速压缩：
+  - `fast_nvidia`： NVIDIA 显卡（NVENC）
+  - `fast_amd`： AMD 显卡（AMF）
+  - `fast_intel`： Intel 显卡（Quick Sync）
   - 若当前机器没有对应的可用硬件编码器，会自动回退到 `libx264` 软件编码
-- **自定义配置**: 可在 `configs` 中添加新的配置方案，命名任意
+- **自定义配置**: 可在 `configs` 中添加新的配置方案，命名任意；`encoder` 填 `auto` 可自动适配
 
 ## 构建指南
 
@@ -216,9 +217,10 @@ VideoSlim/
    - 如果需要，使用 FFmpeg 进行旋转修正，生成临时文件
 
 3. **视频编码压缩**
-   - 默认使用 FFmpeg 的 libx264 软件编码器，根据配置参数（crf、preset、参考帧等）进行高质量压缩
-   - 可选用硬件编码器（`encoder`，如 `h264_nvenc`/`h264_qsv`/`h264_amf`/`h264_mf`）实现 **GPU 编码加速**，
-     配合 `hwaccel` 硬件解码；硬件编码器不可用时会自动回退到软件编码，不会导致压缩失败
+   - 默认 `encoder: "auto"`：按 `h264_nvenc` → `h264_qsv` → `h264_amf` 顺序自动选择当前机器可用的
+     **硬件编码器**实现 GPU 加速，配合 `hwaccel` 硬件解码；均不可用时回退 `libx264` 软件编码
+   - 也可显式指定编码器（`libx264`/`h264_nvenc`/`h264_qsv`/`h264_amf`/`h264_mf`）；
+     显式的硬件编码器不可用时会按 `fallback_to_cpu` 自动回退，不会导致压缩失败
    - 可选 `opencl_acceleration`（x264 OpenCL lookahead），但需 ffmpeg 构建支持；本项目自带的 ffmpeg 未编译 OpenCL，
      启用后会自动忽略并回退；真正的 GPU 加速请使用 `encoder` 硬件编码器
 
@@ -255,10 +257,11 @@ VideoSlim/
 - **编码过慢**: 提高 `preset` 参数值（如从 slow 改为 medium 或 fast）
 - **开启 `opencl_acceleration` 后没有加速**: 本项目自带的 `tools/ffmpeg.exe` **未编译 OpenCL 支持**
   （可执行 `tools\ffmpeg.exe -buildconf | findstr opencl` 验证为空），因此 `opencl_acceleration` 会被自动忽略，
-  程序回退到软件编码（日志中会有警告）。**想要真正的 GPU 加速，请改用硬件编码器**，例如 NVIDIA 显卡配置
-  `"encoder": "h264_nvenc"`（Intel 用 `h264_qsv`，AMD 用 `h264_amf`，通用备选 `h264_mf`），并可同时设置
-  `"hwaccel": "auto"` 启用硬件解码。
-- **如何确认是否在用 GPU 编码**: 查看日志中的 `使用视频编码器: h264_nvenc` 记录，或用任务管理器观察 GPU 占用。
+  程序回退到软件编码（日志中会有警告）。**想要真正的 GPU 加速，请使用硬件编码器**：默认的 `"encoder": "auto"`
+  会自动选择当前机器可用的硬件编码器；也可显式指定 `h264_nvenc`（NVIDIA）/`h264_qsv`（Intel）/`h264_amf`（AMD），
+  并可同时设置 `"hwaccel": "auto"` 启用硬件解码。
+- **如何确认是否在用 GPU 编码**: 查看日志中的 `自动选择硬件编码器: h264_nvenc` 或 `使用视频编码器: h264_nvenc` 记录，
+  或用任务管理器观察 GPU 占用。
 
 ## 许可证
 本项目采用开源许可证，详见 `LICENSE` 文件。
