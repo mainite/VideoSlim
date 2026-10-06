@@ -36,6 +36,9 @@ class VideoService:
     _opencl_supported: Optional[bool] = None
     _encoder_supported: dict[str, bool] = {}
 
+    # 是否正在停止处理：停止时不再重试，避免停机过程中重新启动 ffmpeg
+    _stopping: bool = False
+
     def __init__(self) -> None:
         if self._instance is not None:
             raise ValueError("VideoService 是单例类，不能重复实例化")
@@ -307,6 +310,129 @@ class VideoService:
             return []
         return ["-opencl"]
 
+    @staticmethod
+    def _build_command(
+        input_args: list[str],
+        video_args: list[str],
+        delete_audio: bool,
+        preserve_extra_streams: bool,
+        output_path: str,
+    ) -> list[str]:
+        """
+        构建 ffmpeg 压缩命令
+
+        Args:
+            input_args: 输入相关参数（ffmpeg 路径、输入选项、-i 输入文件）
+            video_args: 视频编码参数
+            delete_audio: 是否删除音频
+            preserve_extra_streams: 是否原样复制字幕等额外流
+            output_path: 输出文件路径
+
+        Returns:
+            list[str]: 完整的命令参数列表
+        """
+        # 只映射首个视频流，避免把数据流（如 tmcd 时间码轨道）写入不支持的容器
+        command = [*input_args, *video_args, "-map", "0:v:0"]
+
+        if preserve_extra_streams:
+            # 字幕原样复制，不重新编码（如 mov_text、srt、ass 等）
+            command += ["-map", "0:s?", "-c:s", "copy"]
+
+        if delete_audio:
+            command += ["-an"]
+        else:
+            command += ["-map", "0:a?", "-c:a", "aac", "-b:a", "128k"]
+
+        command += ["-movflags", "faststart", output_path]
+        return command
+
+    @staticmethod
+    def _run_command(command: list[str], file: VideoFile) -> None:
+        """
+        执行 ffmpeg 命令，并实时解析进度
+
+        Args:
+            command: 命令参数列表
+            file: 当前处理的视频文件，用于发送进度消息
+
+        Raises:
+            subprocess.CalledProcessError: 当命令执行失败时抛出
+        """
+        logging.info(f"执行命令: {subprocess.list2cmdline(command)}")
+
+        # 使用Popen创建子进程并添加到running_process列表
+        process = subprocess.Popen(
+            command,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # 合并stdout和stderr到stdout
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+        VideoService.running_process.append(process)
+
+        # 等待进程完成，同时解析进度
+        cur_time: float = -0.01  # 当前视频播放时间
+        total_time: float = -1  # 视频总时长
+        update_time = time.time()  # 上次更新进度的时间
+        while process.poll() is None:
+            line = ""
+            try:
+                stdout = process.stdout
+                if not stdout:
+                    continue
+
+                line = stdout.readline()
+
+                if not is_progress_line(line):
+                    if total_time == -1 and "Duration" in line:
+                        # 解析视频总时长
+                        total_time = resolve_time_str(
+                            line.split("Duration: ")[1].split(",")[0]
+                        )
+                        logging.debug(f"视频总时长: {total_time}")
+
+                    if line.strip() == "":
+                        continue
+
+                    logging.debug(f"{line.strip()}")
+                    continue
+
+                # 解析当前播放时间
+                cur_time = resolve_time_str(line.split("time=")[1].split(" ")[0])
+
+                # 发送进度
+                if update_time < time.time() - 1:
+                    update_time = time.time()
+                    MessageService.get_instance().send_message(
+                        CompressionCurrentProgressMessage(
+                            file_name=file.file_path,
+                            current=cur_time,
+                            total=total_time,
+                        )
+                    )
+
+            except Exception as e:
+                logging.error(f"读取 stdout 时出错:  {e} 输出: {line.strip()}")
+
+        stdout, stderr = process.communicate()
+
+        # 从running_process列表中移除已完成的进程
+        if process in VideoService.running_process:
+            VideoService.running_process.remove(process)
+
+        # Log command output
+        if stdout:
+            logging.debug(f"command stdout: {stdout.strip()}")
+        if stderr:
+            logging.warning(f"command stderr: {stderr.strip()}")
+
+        # Check return code
+        if process.returncode != 0:
+            logging.error(f"命令执行失败，退出码: {process.returncode}")
+            raise subprocess.CalledProcessError(process.returncode, command)
+
     @timer
     @staticmethod
     def process_single_file(
@@ -339,8 +465,6 @@ class VideoService:
         # Generate output filename
         output_path = file.output_path
 
-        commands = []
-
         ffmpeg_path = meta.FFMPEG_PATH
 
         input_file = file.file_path
@@ -356,117 +480,26 @@ class VideoService:
         input_args = [ffmpeg_path, "-y", *hwaccel_args, "-i", input_file]
         video_args = VideoService._build_video_args(config, encoder)
 
-        # 只映射首个视频流（以及可选的音频流），避免把数据/字幕等
-        # MP4 容器不支持的流（如 tmcd 时间码轨道）写入输出导致失败
-        map_video_args = ["-map", "0:v:0"]
-
-        if not delete_audio:
-            # Process with audio
-            command = [
-                *input_args,
-                *video_args,
-                *map_video_args,
-                "-map",
-                "0:a?",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
-                "-movflags",
-                "faststart",
-                output_path,
-            ]
-        else:
-            # Process without audio
-            command = [
-                *input_args,
-                *video_args,
-                *map_video_args,
-                "-an",
-                "-movflags",
-                "faststart",
-                output_path,
-            ]
-
-        commands.append(command)
-
-        # Execute commands
-        # total_commands = len(commands)
-        for index, command in enumerate(commands):
-            logging.info(f"执行命令: {subprocess.list2cmdline(command)}")
-
-            # 使用Popen创建子进程并添加到running_process列表
-            process = subprocess.Popen(
-                command,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # 合并stdout和stderr到stdout
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
+        # 优先保留原视频中的字幕等额外流：这些流直接复制，不重新编码；
+        # 视频与音频正常压缩。
+        # 若额外流与输出容器不兼容（会在写入文件头时立即失败），则回退为
+        # 仅输出视频与音频流，避免由此导致整个压缩任务失败。
+        command = VideoService._build_command(
+            input_args, video_args, delete_audio, True, output_path
+        )
+        try:
+            VideoService._run_command(command, file)
+        except subprocess.CalledProcessError as e:
+            if VideoService._stopping:
+                # 用户主动停止，直接向上抛出，不再回退重试
+                raise
+            logging.warning(f"保留字幕等额外流失败（{e}），回退为仅输出视频与音频流")
+            VideoService._run_command(
+                VideoService._build_command(
+                    input_args, video_args, delete_audio, False, output_path
+                ),
+                file,
             )
-            VideoService.running_process.append(process)
-
-            # 等待进程完成，同时解析进度
-            cur_time: float = -0.01  # 当前视频播放时间
-            total_time: float = -1  # 视频总时长
-            update_time = time.time()  # 上次更新进度的时间
-            while process.poll() is None:
-                line = ""
-                try:
-                    stdout = process.stdout
-                    if not stdout:
-                        continue
-
-                    line = stdout.readline()
-
-                    if not is_progress_line(line):
-                        if total_time == -1 and "Duration" in line:
-                            # 解析视频总时长
-                            total_time = resolve_time_str(
-                                line.split("Duration: ")[1].split(",")[0]
-                            )
-                            logging.debug(f"视频总时长: {total_time}")
-
-                        if line.strip() == "":
-                            continue
-
-                        logging.debug(f"{line.strip()}")
-                        continue
-
-                    # 解析当前播放时间
-                    cur_time = resolve_time_str(line.split("time=")[1].split(" ")[0])
-
-                    # 发送进度
-                    if update_time < time.time() - 1:
-                        update_time = time.time()
-                        MessageService.get_instance().send_message(
-                            CompressionCurrentProgressMessage(
-                                file_name=file.file_path,
-                                current=cur_time,
-                                total=total_time,
-                            )
-                        )
-
-                except Exception as e:
-                    logging.error(f"读取 stdout 时出错:  {e} 输出: {line.strip()}")
-
-            stdout, stderr = process.communicate()
-
-            # 从running_process列表中移除已完成的进程
-            if process in VideoService.running_process:
-                VideoService.running_process.remove(process)
-
-            # Log command output
-            if stdout:
-                logging.debug(f"command stdout: {stdout.strip()}")
-            if stderr:
-                logging.warning(f"command stderr: {stderr.strip()}")
-
-            # Check return code
-            if process.returncode != 0:
-                logging.error(f"命令执行失败，退出码: {process.returncode}")
-                raise subprocess.CalledProcessError(process.returncode, command)
 
         # Delete source if requested
         if delete_source and os.path.exists(output_path):
@@ -493,6 +526,9 @@ class VideoService:
         message_service = MessageService.get_instance()
 
         logging.info(f"process task: {task.info}")
+
+        # 新任务开始，重置停止标记
+        VideoService._stopping = False
 
         logging.debug(f"process task sequence: {task.video_sequence}")
 
@@ -575,6 +611,9 @@ class VideoService:
         logging.info(
             f"正在停止所有视频处理进程，共 {len(VideoService.running_process)} 个进程"
         )
+
+        # 标记为正在停止，避免被终止的进程触发回退重试
+        VideoService._stopping = True
 
         # 创建进程列表的副本，避免在遍历过程中修改原列表
         processes_to_stop = list(VideoService.running_process)
