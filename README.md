@@ -40,7 +40,9 @@
 
 测试环境：R7-5800H；Windows10系统；16G ddr4内存；RTX3060Laptop。
 
-使用fast_nvidia配置压缩时长为5分钟的4k视频，用时约1分30秒，CPU平均占用为10%，GPU平均占用为40%。
+使用fast_nvidia配置压缩时长为5分钟的4k视频，用时约1分30秒，CPU平均占用为10%，GPU平均占用为50%。
+
+default配置中默认使用软件编码，效率低且CPU负载极高，所以如果你的电脑支持硬件加速，请选用对应配置。
 
 <img src="./img/test1.png" width="820" style="display:block;margin:auto;" />
 

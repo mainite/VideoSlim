@@ -356,19 +356,24 @@ class VideoService:
         input_args = [ffmpeg_path, "-y", *hwaccel_args, "-i", input_file]
         video_args = VideoService._build_video_args(config, encoder)
 
+        # 只映射首个视频流（以及可选的音频流），避免把数据/字幕等
+        # MP4 容器不支持的流（如 tmcd 时间码轨道）写入输出导致失败
+        map_video_args = ["-map", "0:v:0"]
+
         if not delete_audio:
             # Process with audio
             command = [
                 *input_args,
                 *video_args,
+                *map_video_args,
+                "-map",
+                "0:a?",
                 "-c:a",
                 "aac",
                 "-b:a",
                 "128k",
                 "-movflags",
                 "faststart",
-                "-map",
-                "0:",
                 output_path,
             ]
         else:
@@ -376,11 +381,10 @@ class VideoService:
             command = [
                 *input_args,
                 *video_args,
+                *map_video_args,
                 "-an",
                 "-movflags",
                 "faststart",
-                "-map",
-                "0:",
                 output_path,
             ]
 
