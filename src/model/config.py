@@ -55,7 +55,7 @@ class X264ConfigModel(BaseModel):
         description="是否启用 x264 的 OpenCL lookahead 加速（需 ffmpeg 构建支持 OpenCL）",
     )
     hwaccel: HWAccel = Field(
-        default="none",
+        default="auto",
         description=(
             "硬件解码方式，作用于输入文件。none 表示不启用硬件解码；"
             "auto/d3d11va/dxva2/cuda/qsv/vaapi 等值会以 -hwaccel <值> 传入，"
@@ -89,6 +89,33 @@ class ConfigModel(BaseModel):
     )
 
 
+def _default_configs() -> list[ConfigModel]:
+    """
+    生成程序首次启动时写入的默认配置列表
+
+    与仓库根目录的 config.json 保持一致：包含一个通用的 default 配置，
+    以及一个使用 NVENC 硬件编码的 fast 配置（硬件不可用时自动回退到软件编码）。
+
+    Returns:
+        list[ConfigModel]: 默认配置列表
+    """
+    return [
+        # 默认配置，适用于大多数场景
+        ConfigModel(),
+        # 快速配置，使用 NVENC 硬件编码（硬件不可用时自动回退到软件编码）
+        ConfigModel(
+            name="fast",
+            x264=X264ConfigModel(
+                crf=26,
+                preset="fast",
+                opencl_acceleration=True,
+                hwaccel="auto",
+                encoder="h264_nvenc",
+            ),
+        ),
+    ]
+
+
 class ConfigsModel(BaseModel):
     """
     配置集合模型类，用于管理多个视频压缩配置
@@ -97,5 +124,5 @@ class ConfigsModel(BaseModel):
     """
 
     configs: list[ConfigModel] = Field(
-        default_factory=lambda: [ConfigModel()], description="视频压缩配置列表"
+        default_factory=_default_configs, description="视频压缩配置列表"
     )
