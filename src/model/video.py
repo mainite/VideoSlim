@@ -163,6 +163,7 @@ class Task:
         self.video_sequence: list[VideoFile] = []
         for path in self.info.targets:
             if not os.path.exists(path):
+                logging.warning(f"文件 {path} 不存在, 已被略过")
                 continue
 
             if os.path.isdir(path) and self.info.recursive:

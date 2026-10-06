@@ -394,6 +394,10 @@ class VideoService:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,  # 合并stdout和stderr到stdout
             text=True,
+            # ffmpeg 输出为 UTF-8；显式指定编码，避免按系统本地编码(如 GBK)解码
+            # 含特殊字符(如 emoji)的文件名时抛 UnicodeDecodeError
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
             universal_newlines=True,
         )

@@ -142,7 +142,9 @@ class View:
         delete_audio_check.place(x=20, y=313)
 
         # Setup drag and drop
-        windnd.hook_dropfiles(self.root, func=self._on_drop_files)
+        # force_unicode=True 让 windnd 使用 Unicode (W) 版 Win32 API(DragQueryFileW)，
+        # 避免系统 ANSI 代码页无法表示的字符（如 emoji）被替换成 '?' 导致路径失效
+        windnd.hook_dropfiles(self.root, func=self._on_drop_files, force_unicode=True)
 
         # Configuration selection
         config_label = tk.Label(self.root, text="选择参数配置")
@@ -164,9 +166,9 @@ class View:
         处理拖拽到应用程序中的文件
 
         Args:
-            file_paths: 拖拽的文件路径列表
+            file_paths: 拖拽的文件路径列表（force_unicode=True 时为 str 列表）
         """
-        files = "\n".join(item.decode("gbk") for item in file_paths)
+        files = "\n".join(file_paths)
         self.text_box.insert(END, files + "\n")
 
     def _on_close(self):
