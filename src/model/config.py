@@ -89,12 +89,37 @@ class ConfigModel(BaseModel):
     )
 
 
+def _fast_config(name: str, encoder: Encoder) -> ConfigModel:
+    """
+    构建使用硬件编码的快速配置
+
+    硬件不可用时由 fallback_to_cpu 自动回退到 libx264 软件编码。
+
+    Args:
+        name: 配置名称
+        encoder: 硬件编码器名称
+
+    Returns:
+        ConfigModel: 快速配置对象
+    """
+    return ConfigModel(
+        name=name,
+        x264=X264ConfigModel(
+            crf=26,
+            preset="fast",
+            opencl_acceleration=True,
+            hwaccel="auto",
+            encoder=encoder,
+        ),
+    )
+
+
 def _default_configs() -> list[ConfigModel]:
     """
     生成程序首次启动时写入的默认配置列表
 
-    与仓库根目录的 config.json 保持一致：包含一个通用的 default 配置，
-    以及一个使用 NVENC 硬件编码的 fast 配置（硬件不可用时自动回退到软件编码）。
+    包含一个通用的 default 软件编码配置，以及分别适配 NVIDIA、AMD、Intel
+    显卡硬件编码的三套快速配置（硬件不可用时自动回退到软件编码）。
 
     Returns:
         list[ConfigModel]: 默认配置列表
@@ -102,17 +127,10 @@ def _default_configs() -> list[ConfigModel]:
     return [
         # 默认配置，适用于大多数场景
         ConfigModel(),
-        # 快速配置，使用 NVENC 硬件编码（硬件不可用时自动回退到软件编码）
-        ConfigModel(
-            name="fast",
-            x264=X264ConfigModel(
-                crf=26,
-                preset="fast",
-                opencl_acceleration=True,
-                hwaccel="auto",
-                encoder="h264_nvenc",
-            ),
-        ),
+        # 分别使用 NVIDIA / AMD / Intel 硬件编码的快速配置
+        _fast_config("fast_nvidia", "h264_nvenc"),
+        _fast_config("fast_amd", "h264_amf"),
+        _fast_config("fast_intel", "h264_qsv"),
     ]
 
 

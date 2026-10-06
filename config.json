@@ -13,7 +13,7 @@
             }
         },
         {
-            "name": "fast",
+            "name": "fast_nvidia",
             "x264": {
                 "crf": 26,
                 "preset": "fast",
@@ -23,6 +23,34 @@
                 "opencl_acceleration": true,
                 "hwaccel": "auto",
                 "encoder": "h264_nvenc",
+                "fallback_to_cpu": true
+            }
+        },
+        {
+            "name": "fast_amd",
+            "x264": {
+                "crf": 26,
+                "preset": "fast",
+                "I": 600,
+                "r": 4,
+                "b": 3,
+                "opencl_acceleration": true,
+                "hwaccel": "auto",
+                "encoder": "h264_amf",
+                "fallback_to_cpu": true
+            }
+        },
+        {
+            "name": "fast_intel",
+            "x264": {
+                "crf": 26,
+                "preset": "fast",
+                "I": 600,
+                "r": 4,
+                "b": 3,
+                "opencl_acceleration": true,
+                "hwaccel": "auto",
+                "encoder": "h264_qsv",
                 "fallback_to_cpu": true
             }
         }
