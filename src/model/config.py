@@ -107,7 +107,7 @@ def _fast_config(name: str, encoder: Encoder) -> ConfigModel:
     return ConfigModel(
         name=name,
         x264=X264ConfigModel(
-            crf=26,
+            crf=28,
             preset="fast",
             opencl_acceleration=True,
             hwaccel="auto",
@@ -129,10 +129,8 @@ def _default_configs() -> list[ConfigModel]:
     return [
         # 默认配置：自动选择可用的硬件编码器，适用于大多数场景
         ConfigModel(),
-        # 分别强制使用 NVIDIA / AMD / Intel 硬件编码的快速配置
-        _fast_config("fast_nvidia", "h264_nvenc"),
-        _fast_config("fast_amd", "h264_amf"),
-        _fast_config("fast_intel", "h264_qsv"),
+        # 用于快速压缩的配置：适当调大了crf值
+        _fast_config("fast"),
     ]
 
 
