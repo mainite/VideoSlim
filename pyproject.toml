@@ -1,6 +1,6 @@
 [project]
 name = "videoslim"
-version = "2.0.0"
+version = "2.1.0"
 description = "简洁易用的 Windows 视频压缩工具"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -93,21 +93,13 @@ class View:
         self.total_bar = ttk.Progressbar(self.root, orient="horizontal", maximum=100)
         self.total_bar.place(x=24, y=250, width=480, height=10)
 
-        # Clear button
-        clear_btn_text = StringVar()
-        clear_btn_text.set("清空")
-        clear_btn = tk.Button(
-            self.root, textvariable=clear_btn_text, command=self._clear_file_list
-        )
-        clear_btn.place(x=152, y=291, width=72, height=40)
-
         # Compress button
         compress_btn_text = StringVar()
         compress_btn_text.set("压缩")
         self.compress_btn = tk.Button(
             self.root, textvariable=compress_btn_text, command=self._start_compression
         )
-        self.compress_btn.place(x=232, y=291, width=72, height=40)
+        self.compress_btn.place(x=152, y=291, width=72, height=40)
 
         # Terminate button
         terminate_btn_text = StringVar()
@@ -118,7 +110,15 @@ class View:
             command=self._terminate_compression,
             state=tk.DISABLED,
         )
-        self.terminate_btn.place(x=312, y=291, width=72, height=40)
+        self.terminate_btn.place(x=232, y=291, width=72, height=40)
+
+        # Clear button
+        clear_btn_text = StringVar()
+        clear_btn_text.set("清空")
+        clear_btn = tk.Button(
+            self.root, textvariable=clear_btn_text, command=self._clear_file_list
+        )
+        clear_btn.place(x=312, y=291, width=72, height=40)
 
         # Options checkboxes
         self.recurse_var = BooleanVar()

@@ -5,6 +5,8 @@ store
 /.idea
 /.vscode
 /.venv
+/**/*.spec
 /**/__pycache__
 .ruff_cache
 node_cache
+/scripts/output

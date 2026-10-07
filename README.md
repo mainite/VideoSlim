@@ -5,8 +5,7 @@
 
 <p align="center">
   <img src="./img/interface.jpg" width="520" style="display:block;margin:auto;" />
-  <br/>
-  <img src="./img/readme.jpg" width="820" style="display:block;margin:auto;" />
+
   <br/>
   <a href="https://github.com/DongGuoZheng/VideoSlim">GitHub</a>
   ·
