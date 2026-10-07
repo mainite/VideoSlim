@@ -5,9 +5,12 @@ VideoSlim - A video compression application using x264
 Refactored version: v1.8
 """
 
+import datetime
 import logging
+import os
 import tkinter as tk
 
+from src import meta
 from src.controller import Controller
 from src.service import init_services
 from src.view import View
@@ -16,12 +19,19 @@ from src.view import View
 def setup_logging():
     """
     配置日志记录功能
-    该函数用于设置Python的日志记录系统，将日志信息写入到文件中。
-    配置包括日志级别、输出文件、文件写入模式以及日志格式。
+
+    每次启动都会在 log 文件夹下生成一个以当前时间戳命名的日志文件，
+    便于区分不同次运行产生的日志。
     """
+    os.makedirs(meta.LOG_DIR, exist_ok=True)
+    log_file_path = os.path.join(
+        meta.LOG_DIR,
+        datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log",
+    )
+
     logging.basicConfig(
         level=logging.DEBUG,
-        filename="log.txt",
+        filename=log_file_path,
         filemode="w",
         format="%(asctime)s - %(levelname)s - %(message)s",
         encoding="utf-8",

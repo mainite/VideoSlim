@@ -11,7 +11,6 @@ from src import meta, utils
 from src.controller import Controller
 from src.model import message
 from src.service.message import MessageService
-from src.service.video import VideoService
 
 
 class View:
@@ -100,7 +99,7 @@ class View:
         clear_btn = tk.Button(
             self.root, textvariable=clear_btn_text, command=self._clear_file_list
         )
-        clear_btn.place(x=168, y=291, width=88, height=40)
+        clear_btn.place(x=152, y=291, width=72, height=40)
 
         # Compress button
         compress_btn_text = StringVar()
@@ -108,7 +107,18 @@ class View:
         self.compress_btn = tk.Button(
             self.root, textvariable=compress_btn_text, command=self._start_compression
         )
-        self.compress_btn.place(x=280, y=291, width=88, height=40)
+        self.compress_btn.place(x=232, y=291, width=72, height=40)
+
+        # Terminate button
+        terminate_btn_text = StringVar()
+        terminate_btn_text.set("终止")
+        self.terminate_btn = tk.Button(
+            self.root,
+            textvariable=terminate_btn_text,
+            command=self._terminate_compression,
+            state=tk.DISABLED,
+        )
+        self.terminate_btn.place(x=312, y=291, width=72, height=40)
 
         # Options checkboxes
         self.recurse_var = BooleanVar()
@@ -142,7 +152,9 @@ class View:
         delete_audio_check.place(x=20, y=313)
 
         # Setup drag and drop
-        windnd.hook_dropfiles(self.root, func=self._on_drop_files)
+        # force_unicode=True 让 windnd 使用 Unicode (W) 版 Win32 API(DragQueryFileW)，
+        # 避免系统 ANSI 代码页无法表示的字符（如 emoji）被替换成 '?' 导致路径失效
+        windnd.hook_dropfiles(self.root, func=self._on_drop_files, force_unicode=True)
 
         # Configuration selection
         config_label = tk.Label(self.root, text="选择参数配置")
@@ -164,9 +176,9 @@ class View:
         处理拖拽到应用程序中的文件
 
         Args:
-            file_paths: 拖拽的文件路径列表
+            file_paths: 拖拽的文件路径列表（force_unicode=True 时为 str 列表）
         """
-        files = "\n".join(item.decode("gbk") for item in file_paths)
+        files = "\n".join(file_paths)
         self.text_box.insert(END, files + "\n")
 
     def _on_close(self):
@@ -177,7 +189,7 @@ class View:
         该方法会发送一个退出消息到消息队列，通知其他组件应用程序正在关闭。
         """
         # 如果有正在处理的任务，提示用户确认是否继续
-        if VideoService.get_instance().is_processing():
+        if self.controller.is_task_running():
             response = messagebox.askyesno(
                 "确认", "当前有正在处理的任务，是否关闭程序？"
             )
@@ -185,6 +197,33 @@ class View:
                 return
 
         self.controller.close()
+
+    def _terminate_compression(self):
+        """
+        终止当前正在进行的压缩任务
+
+        用户点击"终止"按钮时调用：立即结束当前 ffmpeg 进程，并不再处理列表中
+        尚未开始的文件。
+        """
+        if not self.controller.is_task_running():
+            self._update_button_states()
+            return
+
+        if not messagebox.askyesno("确认", "确定要终止当前的压缩任务吗？"):
+            return
+
+        self.title_var.set("正在终止压缩任务…")
+        self.title_label.update()
+        self.controller.terminate()
+        self._update_button_states()
+
+    def _update_button_states(self):
+        """
+        根据压缩任务是否在运行，切换"压缩"与"终止"按钮的可用状态
+        """
+        running = self.controller.is_task_running()
+        self.compress_btn.config(state=tk.DISABLED if running else tk.NORMAL)
+        self.terminate_btn.config(state=tk.NORMAL if running else tk.DISABLED)
 
     def _clear_file_list(self):
         """
@@ -218,13 +257,13 @@ class View:
                 case message.ExitMessage():
                     # Exit application
                     self.root.destroy()
+                    return
                 case message.ConfigLoadMessage(config_names=config_names):
                     # 将加载的配置显示在选项框，并自动选中第一个
                     self.config_combobox.config(values=config_names)
                     self.select_config_name.set(config_names[0])
                 case message.CompressionStartMessage():
-                    # Disable button
-                    self.compress_btn.config(state=tk.DISABLED)
+                    # 按钮状态由 _update_button_states 统一维护
                     self.cur_bar["value"] = 0
                     self.cur_bar.update()
                     self.total_bar["value"] = 0
@@ -248,22 +287,28 @@ class View:
                 case message.CompressionErrorMessage(title=t, message=m):
                     # Display error message
                     messagebox.showerror(t, m)
-                    self.compress_btn.config(state=tk.NORMAL)
                 case message.CompressionFinishedMessage(total=total):
                     # All files processed
                     messagebox.showinfo("提示", "转换结束")
                     self.title_var.set(f"处理完成！已经处理 {total} 个文件")
                     self.title_label.update()
-                    self.compress_btn.config(state=tk.NORMAL)
 
                     self.cur_bar["value"] = 0
                     self.cur_bar.update()
                     self.total_bar["value"] = 100
                     self.total_bar.update()
+                case message.CompressionStoppedMessage():
+                    # 用户终止了压缩任务
+                    messagebox.showinfo("提示", "已终止当前的压缩任务")
+                    self.title_var.set("压缩任务已终止")
+                    self.title_label.update()
+                    self.cur_bar["value"] = 0
+                    self.cur_bar.update()
                 case _:
                     continue
 
-        # Schedule next check
+        # 同步按钮状态，并安排下一次检查
+        self._update_button_states()
         self.root.after(1000, self._check_message_queue)
 
     def _start_compression(self):
@@ -288,9 +333,12 @@ class View:
             messagebox.showwarning("提示", "请先拖拽文件到此处")
             return
 
-        # 禁用按钮
+        # 禁用按钮，防止重复点击
         self.compress_btn.config(state=tk.DISABLED)
 
         self.controller.compression(
             config_name, delete_audio, delete_source, lines, recurse
         )
+
+        # 任务已开始，刷新按钮状态（终止按钮变为可用）
+        self._update_button_states()

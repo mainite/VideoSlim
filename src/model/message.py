@@ -140,6 +140,21 @@ class CompressionFinishedMessage(IMessage):
         self.total = total
 
 
+class CompressionStoppedMessage(IMessage):
+    """
+    压缩终止消息类，用于通知用户主动终止了视频压缩任务
+
+    与"压缩完成"不同，收到此消息表示任务是被终止的，界面应恢复可用状态并如实提示，
+    而不是显示"转换结束".
+    """
+
+    def __init__(self) -> None:
+        """
+        初始化压缩终止消息
+        """
+        pass
+
+
 class CompressionStartMessage(IMessage):
     """
     压缩开始消息类，用于通知视频压缩任务开始

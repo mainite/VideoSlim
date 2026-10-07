@@ -1,5 +1,5 @@
 .idea/
-log.txt
+log/
 store
 /output/
 /.idea
@@ -7,3 +7,4 @@ store
 /.venv
 /**/__pycache__
 .ruff_cache
+node_cache

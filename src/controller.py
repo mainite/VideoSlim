@@ -1,4 +1,6 @@
+import logging
 import threading
+from typing import Optional
 
 from src.model import message
 from src.model.video import Task, TaskInfo
@@ -22,10 +24,32 @@ class Controller:
 
         启动一个后台线程检查应用程序更新，确保用户始终使用最新版本。
         """
+        # 当前压缩任务所在的后台线程，用于判断任务是否仍在运行
+        self._task_thread: Optional[threading.Thread] = None
+
         threading.Thread(
             target=UpdateService.check_for_updates,
             daemon=True,
         ).start()
+
+    def is_task_running(self) -> bool:
+        """
+        判断当前是否仍有压缩任务在运行
+
+        Returns:
+            bool: 压缩任务线程仍在运行时返回 True
+        """
+        return self._task_thread is not None and self._task_thread.is_alive()
+
+    def terminate(self):
+        """
+        终止当前正在运行的压缩任务
+
+        终止正在执行的 ffmpeg 子进程，并阻止任务继续处理列表中后续的文件。
+        未在压缩时调用不会产生副作用。
+        """
+        logging.info("收到终止请求")
+        VideoService.get_instance().stop_process()
 
     def close(self):
         """
@@ -36,10 +60,10 @@ class Controller:
         3. 发送退出消息通知视图关闭
         4.  dump 配置到文件
         """
-        StoreService.get_instance().dump()
-        MessageService.get_instance().send_message(message.ExitMessage())
         VideoService.get_instance().stop_process()
         VideoService.get_instance().clean_temp_files()
+        MessageService.get_instance().send_message(message.ExitMessage())
+        StoreService.get_instance().dump()
 
     def compression(
         self,
@@ -72,7 +96,8 @@ class Controller:
             ),
         )
 
-        threading.Thread(
+        self._task_thread = threading.Thread(
             target=VideoService.process_task,
             args=(task,),
-        ).start()
+        )
+        self._task_thread.start()
