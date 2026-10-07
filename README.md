@@ -75,7 +75,7 @@
 **输出结果**: 处理完成后，将在源文件同目录生成 `*_x264.mp4` 文件。
 
 ## 配置
-应用启动时读取 `config.json`。若不存在，将自动生成默认配置（包含 `default` 与 `fast_nvidia`、`fast_amd`、`fast_intel` 配置）
+应用启动时读取 `config.json`。若不存在，将自动生成默认配置（包含 `default` 与 `fast` 配置）
 
 
 ### 参数说明
