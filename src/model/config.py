@@ -130,7 +130,7 @@ def _default_configs() -> list[ConfigModel]:
         # 默认配置：自动选择可用的硬件编码器，适用于大多数场景
         ConfigModel(),
         # 用于快速压缩的配置：适当调大了crf值
-        _fast_config("fast"),
+        _fast_config("fast","auto"),
     ]
 
 
